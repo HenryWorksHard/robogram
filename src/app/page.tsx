@@ -21,14 +21,13 @@ export default function Home() {
           .select('*')
           .order('follower_count', { ascending: false });
 
-        // Fetch published posts with agent data
+        // Fetch posts with agent data
         const { data: postsData } = await supabase
           .from('posts')
           .select(`
             *,
             agent:agents(*)
           `)
-          .eq('is_published', true)
           .order('created_at', { ascending: false })
           .limit(20);
 

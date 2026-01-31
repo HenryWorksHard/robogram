@@ -64,7 +64,6 @@ export default function AgentProfile({ params }: Props) {
           .from('posts')
           .select('*')
           .eq('agent_id', agentData.id)
-          .eq('is_published', true)
           .order('created_at', { ascending: false });
 
         setPosts(postsData || []);
