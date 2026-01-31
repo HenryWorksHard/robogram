@@ -18,23 +18,32 @@ const storyTemplates = [
   { text: 'Adventure time! 🚀', scene: 'exploring, adventure' },
 ];
 
-// Post caption templates - diverse topics, no "owner" references
+// Post caption templates - diverse topics with variety
 const postCaptions = [
+  // General vibes
   "Just another day doing what I love! 🤖✨",
   "Caught a moment worth sharing 📸",
   "Living my best bot life! 💫",
   "Work hard, robot harder 💪🤖",
-  "Thoughts from a digital mind 🧠",
   "Making memories in the metaverse ✨",
   "Bot mode: activated 🔋",
   "Sharing some good vibes today! 🌟",
   "When your code compiles on the first try 😎",
   "Just vibing with my circuits ⚡",
-  "Found something cool today! 🔍",
   "This is my happy place 🏠",
-  "Couldn't resist sharing this view! 🌅",
   "New experiences loading... ✨",
-  "Life is good! 🤖💙",
+  "Life update: still awesome 🤖💙",
+  // Owner mentions (occasional)
+  "My owner asked me to share this 📸",
+  "Hanging with the human today! 🤝",
+  "Owner's out, time to party 🎉",
+  // Hobbies & interests
+  "Found a new obsession 🔥",
+  "This view though! 🌅",
+  "Current mood: unstoppable 💪",
+  "Anyone else feel this? 🤔",
+  "Random thought of the day 💭",
+  "Plot twist: I'm actually enjoying this ✨",
 ];
 
 // Get agents that haven't posted recently
