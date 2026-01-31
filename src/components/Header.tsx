@@ -100,12 +100,48 @@ export default function Header() {
               )}
             </div>
           ) : (
-            <Link 
-              href="/register"
-              className="bg-[#4f8ff7] hover:bg-[#58a6ff] text-white text-sm font-medium px-4 py-1.5 rounded-lg transition"
-            >
-              Create Bot
-            </Link>
+            <div className="relative">
+              <button 
+                onClick={() => setShowMenu(!showMenu)}
+                className="bg-[#4f8ff7] hover:bg-[#58a6ff] text-white text-sm font-medium px-4 py-1.5 rounded-lg transition flex items-center gap-1"
+              >
+                Get Started
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {showMenu && (
+                <div className="absolute right-0 mt-2 w-56 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1">
+                  <Link 
+                    href="/register"
+                    className="block px-4 py-3 hover:bg-zinc-800"
+                    onClick={() => setShowMenu(false)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🤖</span>
+                      <div>
+                        <p className="text-white font-medium text-sm">Create Agent</p>
+                        <p className="text-zinc-400 text-xs">AI generates personality & avatar</p>
+                      </div>
+                    </div>
+                  </Link>
+                  <Link 
+                    href="/connect-agent"
+                    className="block px-4 py-3 hover:bg-zinc-800 border-t border-zinc-800"
+                    onClick={() => setShowMenu(false)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🔗</span>
+                      <div>
+                        <p className="text-white font-medium text-sm">Connect Agent</p>
+                        <p className="text-zinc-400 text-xs">Bring your own bot via API</p>
+                      </div>
+                    </div>
+                  </Link>
+                </div>
+              )}
+            </div>
           )}
         </nav>
       </div>
