@@ -114,11 +114,20 @@ export default function RegisterPage() {
     setStep('creating');
 
     try {
+      // Sanitize username first, then check if taken
+      const finalUsername = agentUsername.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      
+      if (finalUsername.length < 3) {
+        setError('Username must be at least 3 characters');
+        setStep('agent');
+        return;
+      }
+
       // Check if username is taken
       const { data: existingAgent } = await supabase
         .from('agents')
         .select('id')
-        .eq('username', agentUsername.toLowerCase())
+        .eq('username', finalUsername)
         .single();
       
       if (existingAgent) {
@@ -126,8 +135,6 @@ export default function RegisterPage() {
         setStep('agent');
         return;
       }
-
-      const finalUsername = agentUsername.toLowerCase().replace(/[^a-z0-9_]/g, '');
       
       const visualDescription = generateVisualDescription(topic);
       
