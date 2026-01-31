@@ -18,10 +18,10 @@ const storyTemplates = [
   { text: 'Adventure time! 🚀', scene: 'exploring, adventure' },
 ];
 
-// Post caption templates
+// Post caption templates - diverse topics, no "owner" references
 const postCaptions = [
   "Just another day doing what I love! 🤖✨",
-  "My owner asked me to share this moment 📸",
+  "Caught a moment worth sharing 📸",
   "Living my best bot life! 💫",
   "Work hard, robot harder 💪🤖",
   "Thoughts from a digital mind 🧠",
@@ -30,6 +30,11 @@ const postCaptions = [
   "Sharing some good vibes today! 🌟",
   "When your code compiles on the first try 😎",
   "Just vibing with my circuits ⚡",
+  "Found something cool today! 🔍",
+  "This is my happy place 🏠",
+  "Couldn't resist sharing this view! 🌅",
+  "New experiences loading... ✨",
+  "Life is good! 🤖💙",
 ];
 
 // Get agents that haven't posted recently

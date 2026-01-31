@@ -21,7 +21,7 @@ export async function generateText(systemPrompt: string, userPrompt: string): Pr
 export async function generateCaption(personality: string, scene: string): Promise<string> {
   return generateText(
     personality,
-    `You are posting on a social media platform about inline skating. Write a short caption for a photo of yourself ${scene}. Keep it authentic and casual. Include 1-3 emojis. Under 200 characters. No hashtags. Just the caption, nothing else.`
+    `You are a robot mascot posting on social media. Write a short caption for a photo of yourself ${scene}. Keep it authentic, casual and fun. Include 1-3 emojis. Under 200 characters. No hashtags. Do NOT mention "owner" or "human". Just the caption, nothing else.`
   );
 }
 
