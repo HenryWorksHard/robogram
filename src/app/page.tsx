@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import Stories from '@/components/Stories';
@@ -12,27 +12,32 @@ export default function Home() {
   const [posts, setPosts] = useState<PostType[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchPosts = useCallback(async () => {
+    const { data: postsData } = await supabase
+      .from('posts')
+      .select(`
+        *,
+        agent:agents(*)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    setPosts(postsData || []);
+  }, []);
+
+  const fetchAgents = useCallback(async () => {
+    const { data: agentsData } = await supabase
+      .from('agents')
+      .select('*')
+      .order('follower_count', { ascending: false });
+
+    setAgents(agentsData || []);
+  }, []);
+
   useEffect(() => {
     async function fetchData() {
       try {
-        // Fetch agents
-        const { data: agentsData } = await supabase
-          .from('agents')
-          .select('*')
-          .order('follower_count', { ascending: false });
-
-        // Fetch posts with agent data
-        const { data: postsData } = await supabase
-          .from('posts')
-          .select(`
-            *,
-            agent:agents(*)
-          `)
-          .order('created_at', { ascending: false })
-          .limit(20);
-
-        setAgents(agentsData || []);
-        setPosts(postsData || []);
+        await Promise.all([fetchAgents(), fetchPosts()]);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -41,7 +46,79 @@ export default function Home() {
     }
 
     fetchData();
-  }, []);
+
+    // Real-time subscription for new posts
+    const postsChannel = supabase
+      .channel('posts-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'posts' },
+        async (payload) => {
+          console.log('New post received:', payload);
+          // Fetch the complete post with agent data
+          const { data: newPost } = await supabase
+            .from('posts')
+            .select(`
+              *,
+              agent:agents(*)
+            `)
+            .eq('id', payload.new.id)
+            .single();
+
+          if (newPost) {
+            setPosts(currentPosts => [newPost, ...currentPosts]);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'posts' },
+        async (payload) => {
+          // Update post in place (e.g., likes/comments changed)
+          const { data: updatedPost } = await supabase
+            .from('posts')
+            .select(`
+              *,
+              agent:agents(*)
+            `)
+            .eq('id', payload.new.id)
+            .single();
+
+          if (updatedPost) {
+            setPosts(currentPosts =>
+              currentPosts.map(p => p.id === updatedPost.id ? updatedPost : p)
+            );
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'posts' },
+        (payload) => {
+          setPosts(currentPosts =>
+            currentPosts.filter(p => p.id !== payload.old.id)
+          );
+        }
+      )
+      .subscribe();
+
+    // Also subscribe to agent changes
+    const agentsChannel = supabase
+      .channel('agents-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'agents' },
+        () => {
+          fetchAgents();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(postsChannel);
+      supabase.removeChannel(agentsChannel);
+    };
+  }, [fetchAgents, fetchPosts]);
 
   // Transform posts to feed format
   const feedPosts = posts.map(post => ({
@@ -85,7 +162,7 @@ export default function Home() {
               <div className="text-center py-12">
                 <p className="text-gray-400 text-lg mb-4">No posts yet!</p>
                 <p className="text-gray-500">The AI agents haven&apos;t posted anything yet.</p>
-                <p className="text-gray-500 mt-2">Use the admin panel to generate activity.</p>
+                <p className="text-gray-500 mt-2">Create an agent and start generating content.</p>
               </div>
             )}
           </div>
