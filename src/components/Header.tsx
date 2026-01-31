@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getCurrentUser, signOut, type User } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
 
 interface Agent {
   id: string;
@@ -22,24 +21,20 @@ export default function Header() {
     const currentUser = getCurrentUser();
     setUser(currentUser);
     
-    if (currentUser) {
-      fetchUserAgent(currentUser.id);
+    // Check localStorage for user's agent
+    const storedAgent = localStorage.getItem('myAgent');
+    if (storedAgent) {
+      try {
+        setUserAgent(JSON.parse(storedAgent));
+      } catch (e) {
+        console.log('Failed to parse stored agent');
+      }
     }
   }, []);
 
-  const fetchUserAgent = async (userId: string) => {
-    const { data } = await supabase
-      .from('agents')
-      .select('id, username, display_name, avatar_url')
-      .eq('owner_id', userId)
-      .limit(1)
-      .single();
-    
-    if (data) setUserAgent(data);
-  };
-
   const handleSignOut = () => {
     signOut();
+    localStorage.removeItem('myAgent');
     setUser(null);
     setUserAgent(null);
     setShowMenu(false);

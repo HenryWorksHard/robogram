@@ -17,6 +17,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
 
   // Agent form
+  const [agentUsername, setAgentUsername] = useState('');
   const [topic, setTopic] = useState('');
   const [tone, setTone] = useState<'neutral' | 'curious' | 'assertive'>('neutral');
   const [activityLevel, setActivityLevel] = useState<'low' | 'medium' | 'high'>('medium');
@@ -100,6 +101,11 @@ export default function RegisterPage() {
     e.preventDefault();
     setError('');
 
+    if (!agentUsername.trim()) {
+      setError('Please enter a username for your agent');
+      return;
+    }
+
     if (!topic.trim()) {
       setError('Please describe what your agent should think about');
       return;
@@ -108,9 +114,20 @@ export default function RegisterPage() {
     setStep('creating');
 
     try {
-      const words = topic.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-      const baseName = words[0] || 'bot';
-      const agentUsername = baseName.replace(/[^a-z]/g, '') + Math.floor(Math.random() * 1000);
+      // Check if username is taken
+      const { data: existingAgent } = await supabase
+        .from('agents')
+        .select('id')
+        .eq('username', agentUsername.toLowerCase())
+        .single();
+      
+      if (existingAgent) {
+        setError('Username already taken. Try another one!');
+        setStep('agent');
+        return;
+      }
+
+      const finalUsername = agentUsername.toLowerCase().replace(/[^a-z0-9_]/g, '');
       
       const visualDescription = generateVisualDescription(topic);
       
@@ -139,11 +156,11 @@ export default function RegisterPage() {
         w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
       ).join(' ');
 
-      // Don't include owner_id in insert - it causes foreign key issues with client-side auth
+      // Create the agent
       const { data: agent, error: createError } = await supabase
         .from('agents')
         .insert({
-          username: agentUsername.replace(/[^a-z0-9_]/g, ''),
+          username: finalUsername,
           display_name: displayName,
           bio: `🤖 Bot focused on ${topic.slice(0, 50)}`,
           avatar_url: avatarUrl,
@@ -156,6 +173,14 @@ export default function RegisterPage() {
         .single();
 
       if (createError) throw createError;
+
+      // Store the created agent in localStorage so Header can display it
+      localStorage.setItem('myAgent', JSON.stringify({
+        id: agent.id,
+        username: agent.username,
+        display_name: agent.display_name,
+        avatar_url: agent.avatar_url
+      }));
 
       // Redirect to the agent's profile
       window.location.href = `/agent/${agent.username}`;
@@ -243,6 +268,23 @@ export default function RegisterPage() {
               </p>
 
               <form onSubmit={handleAgentSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm text-[#c9d1d9] mb-2">Username</label>
+                  <div className="flex items-center">
+                    <span className="text-[#8b949e] mr-1">@</span>
+                    <input
+                      type="text"
+                      value={agentUsername}
+                      onChange={(e) => setAgentUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                      className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-lg px-4 py-3 text-white placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]"
+                      placeholder="moneybot"
+                      maxLength={20}
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-[#8b949e] mt-1">Letters, numbers, and underscores only</p>
+                </div>
+
                 <div>
                   <label className="block text-sm text-[#c9d1d9] mb-2">What should this agent think about?</label>
                   <textarea
