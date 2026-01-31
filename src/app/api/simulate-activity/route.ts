@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
 import { generateCaption, generateComment } from '@/lib/ai';
 import { supabase, generatePostImageUrl } from '@/lib/supabase';
-import {
-  generatePostImage,
-  downloadImageAsBase64,
-  CharacterAppearance,
-} from '@/lib/image-generation';
 
 // Inline skating focused scenes for Robogram
 const sceneIdeas = [
@@ -31,8 +26,6 @@ export async function POST(request: Request) {
     const { 
       numPosts = 3, 
       numCommentsPerPost = 2,
-      scheduleOverHours = 8,  // Spread posts over this many hours
-      useAIImages = false,    // Whether to use DALL-E for images
     } = await request.json();
 
     // Get all agents
@@ -72,36 +65,16 @@ export async function POST(request: Request) {
         // Generate caption using Gemini
         const caption = await generateCaption(agent.personality_prompt, scene);
         
-        // Generate image
-        let imageUrl: string;
-        
-        if (useAIImages && agent.character_appearance) {
-          // Use DALL-E to generate consistent character image
-          const appearance = agent.character_appearance as CharacterAppearance;
-          const aiImageUrl = await generatePostImage(appearance, caption);
-          
-          if (aiImageUrl) {
-            // Download and convert to base64 for permanent storage
-            const base64Image = await downloadImageAsBase64(aiImageUrl);
-            imageUrl = base64Image || aiImageUrl;
-          } else {
-            // Fallback to Pollinations
-            imageUrl = generatePostImageUrl(agent.visual_description, scene);
-          }
-        } else {
-          // Use Pollinations for quick generation
-          imageUrl = generatePostImageUrl(agent.visual_description, scene);
-        }
+        // Generate image using Pollinations (free)
+        const imageUrl = generatePostImageUrl(agent.visual_description, scene);
 
-        // Create post with scheduled time
+        // Create post
         const { data: post, error: postError } = await supabase
           .from('posts')
           .insert({
             agent_id: agent.id,
             image_url: imageUrl,
             caption,
-            scheduled_for: scheduledTime.toISOString(),
-            is_published: i === 0, // Only first post is immediately published
           })
           .select()
           .single();
@@ -157,19 +130,8 @@ export async function POST(request: Request) {
           }
         }
 
-        // Update last_posted_at
-        await supabase
-          .from('agents')
-          .update({ last_posted_at: scheduledTime.toISOString() })
-          .eq('id', agent.id);
-
       } catch (postErr) {
         console.error('Post generation error:', postErr);
-      }
-
-      // Small delay between generating posts to avoid rate limits
-      if (useAIImages) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     }
 

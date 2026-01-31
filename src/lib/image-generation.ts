@@ -1,8 +1,4 @@
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Image generation using Pollinations (free, no API key needed)
 
 export interface CharacterAppearance {
   gender: 'male' | 'female';
@@ -70,79 +66,24 @@ const profileScenarios = [
   'brunch with friends, cropped to subject',
 ];
 
-// Post image scenarios for inline skating content
-const postScenarios = [
-  'inline skating at a skate park',
-  'roller skating along a coastal path',
-  'doing skating tricks at a park',
-  'skating through city streets',
-  'at an outdoor skating rink',
-  'skating with friends in a group',
-  'taking a break from skating, sitting with skates visible',
-  'stretching before a skating session',
-  'sunset skating session',
-  'morning skate through a quiet neighborhood',
-];
-
-export async function generateProfileImage(
-  appearance: CharacterAppearance,
-  botName: string
-): Promise<string | null> {
+// Generate profile image URL using Pollinations (free)
+export function generateProfileImageUrl(appearance: CharacterAppearance): string {
   const scenario = profileScenarios[Math.floor(Math.random() * profileScenarios.length)];
   
-  const prompt = `Realistic photograph of a ${appearance.ageRange} ${appearance.ethnicity} ${appearance.gender}, ${appearance.bodyType} build, ${appearance.hairColor} ${appearance.hairStyle} hair, ${appearance.distinctiveFeatures}. ${scenario}. Shot on iPhone, natural and authentic looking, not overly polished. Australian vibe.`;
-
-  try {
-    const response = await openai.images.generate({
-      model: 'dall-e-3',
-      prompt,
-      n: 1,
-      size: '1024x1024',
-      quality: 'standard',
-    });
-
-    return response.data?.[0]?.url || null;
-  } catch (error) {
-    console.error(`Error generating profile image for ${botName}:`, error);
-    return null;
-  }
-}
-
-export async function generatePostImage(
-  appearance: CharacterAppearance,
-  postContent: string
-): Promise<string | null> {
-  // Pick a skating-related scenario that might match the post
-  const scenario = postScenarios[Math.floor(Math.random() * postScenarios.length)];
+  const prompt = `Realistic photograph of a ${appearance.ageRange} ${appearance.ethnicity} ${appearance.gender}, ${appearance.bodyType} build, ${appearance.hairColor} ${appearance.hairStyle} hair, ${appearance.distinctiveFeatures}. ${scenario}. Shot on iPhone, natural and authentic looking. Australian vibe.`;
   
-  const prompt = `Realistic photograph of a ${appearance.ageRange} ${appearance.ethnicity} ${appearance.gender}, ${appearance.bodyType} build, ${appearance.hairColor} ${appearance.hairStyle} hair, ${appearance.distinctiveFeatures}. ${scenario}. Shot on iPhone, candid and authentic, inline skating/roller skating activity. Australian suburban or urban setting.`;
-
-  try {
-    const response = await openai.images.generate({
-      model: 'dall-e-3',
-      prompt,
-      n: 1,
-      size: '1024x1024',
-      quality: 'standard',
-    });
-
-    return response.data?.[0]?.url || null;
-  } catch (error) {
-    console.error('Error generating post image:', error);
-    return null;
-  }
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true`;
 }
 
-// Download image from URL and convert to base64 for storage
-export async function downloadImageAsBase64(url: string): Promise<string | null> {
-  try {
-    const response = await fetch(url);
-    const buffer = await response.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString('base64');
-    const contentType = response.headers.get('content-type') || 'image/png';
-    return `data:${contentType};base64,${base64}`;
-  } catch (error) {
-    console.error('Error downloading image:', error);
-    return null;
-  }
+// Generate post image URL using Pollinations (free)
+export function generatePostImageUrl(appearance: CharacterAppearance, scene: string): string {
+  const prompt = `Realistic photograph of a ${appearance.ageRange} ${appearance.ethnicity} ${appearance.gender}, ${appearance.bodyType} build, ${appearance.hairColor} ${appearance.hairStyle} hair. ${scene}. Shot on iPhone, candid and authentic, inline skating activity. Australian suburban or urban setting.`;
+  
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&nologo=true`;
+}
+
+// Simple image URL generator from visual description
+export function generateSimpleImageUrl(visualDescription: string, scene: string): string {
+  const prompt = `${visualDescription}, ${scene}, realistic photograph, shot on iPhone, candid, Australian setting`;
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&nologo=true`;
 }

@@ -62,6 +62,10 @@ Your interests: ${interests}
 You post about skating, fitness, and daily life in Adelaide, Australia.
 Keep responses casual, authentic, and friendly. Use Australian slang occasionally.`;
 
+    // Generate mascot avatar based on personality and interests
+    const avatarPrompt = `Cute pixel art mascot character representing ${interests.split(',')[0] || 'skating'}, with happy kawaii face and rosy cheeks, small stubby arms and legs, circular frame, colorful gradient background, clean simple 8-bit retro game style, adorable friendly, high quality pixel art, centered`;
+    const avatarUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(avatarPrompt)}?width=512&height=512&nologo=true&seed=${Date.now()}`;
+
     // Create the agent
     const { error: createError } = await supabase
       .from('user_agents')
@@ -70,6 +74,7 @@ Keep responses casual, authentic, and friendly. Use Australian slang occasionall
         username,
         display_name: displayName,
         bio,
+        avatar_url: avatarUrl,
         personality_prompt: personalityPrompt,
         visual_description: `${personality.split(' ')[0]} person who loves inline skating`,
       });
