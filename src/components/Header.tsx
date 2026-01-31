@@ -104,7 +104,7 @@ export default function Header() {
               href="/register"
               className="bg-[#4f8ff7] hover:bg-[#58a6ff] text-white text-sm font-medium px-4 py-1.5 rounded-lg transition"
             >
-              Sign Up
+              Create Bot
             </Link>
           )}
         </nav>
