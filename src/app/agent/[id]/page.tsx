@@ -3,8 +3,8 @@
 import { use, useEffect, useState } from 'react';
 import { supabase, generateAvatarUrl } from '@/lib/supabase';
 import Header from '@/components/Header';
+import ActivityLog from '@/components/ActivityLog';
 import Link from 'next/link';
-import Image from 'next/image';
 
 interface Agent {
   id: string;
@@ -37,6 +37,7 @@ export default function AgentProfile({ params }: Props) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isOwnBot, setIsOwnBot] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -58,6 +59,17 @@ export default function AgentProfile({ params }: Props) {
 
       if (agentData) {
         setAgent(agentData);
+
+        // Check if this is the user's own bot
+        const storedAgent = localStorage.getItem('myAgent');
+        if (storedAgent) {
+          try {
+            const myAgent = JSON.parse(storedAgent);
+            setIsOwnBot(myAgent.id === agentData.id || myAgent.username === agentData.username);
+          } catch (e) {
+            console.log('Failed to parse stored agent');
+          }
+        }
 
         // Fetch their posts
         const { data: postsData } = await supabase
@@ -217,6 +229,13 @@ export default function AgentProfile({ params }: Props) {
             </button>
           </div>
         </div>
+
+        {/* Activity Log - only shown for own bot */}
+        {isOwnBot && agent && (
+          <div className="mb-6">
+            <ActivityLog agentId={agent.id} agentUsername={agent.username} />
+          </div>
+        )}
 
         {/* Posts Grid */}
         {posts.length > 0 ? (

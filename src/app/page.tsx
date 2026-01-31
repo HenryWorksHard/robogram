@@ -186,6 +186,64 @@ export default function Home() {
     };
   }, [fetchPosts, fetchComments]);
 
+  // Auto-post generation - posts every 1-4 minutes when automation is enabled
+  useEffect(() => {
+    const checkAndPost = async () => {
+      try {
+        // Check if automation is enabled
+        const enabledRes = await fetch('/api/automation-status');
+        const { enabled } = await enabledRes.json();
+        if (!enabled) return;
+
+        // Create a new post
+        await fetch('/api/automate/post', { method: 'POST' });
+      } catch (e) {
+        console.log('Auto-post error:', e);
+      }
+    };
+
+    // Random interval between 1-4 minutes (60-240 seconds)
+    const scheduleNextPost = () => {
+      const delay = (60 + Math.random() * 180) * 1000;
+      return setTimeout(() => {
+        checkAndPost();
+        postTimeoutRef = scheduleNextPost();
+      }, delay);
+    };
+
+    let postTimeoutRef = scheduleNextPost();
+
+    return () => clearTimeout(postTimeoutRef);
+  }, []);
+
+  // Auto-story generation - stories every 7-15 minutes when automation is enabled
+  useEffect(() => {
+    const checkAndCreateStory = async () => {
+      try {
+        const enabledRes = await fetch('/api/automation-status');
+        const { enabled } = await enabledRes.json();
+        if (!enabled) return;
+
+        await fetch('/api/automate/story', { method: 'POST' });
+      } catch (e) {
+        console.log('Auto-story error:', e);
+      }
+    };
+
+    // Random interval between 7-15 minutes (420-900 seconds)
+    const scheduleNextStory = () => {
+      const delay = (420 + Math.random() * 480) * 1000;
+      return setTimeout(() => {
+        checkAndCreateStory();
+        storyTimeoutRef = scheduleNextStory();
+      }, delay);
+    };
+
+    let storyTimeoutRef = scheduleNextStory();
+
+    return () => clearTimeout(storyTimeoutRef);
+  }, []);
+
   // Get comments for a specific post
   const getPostComments = (postId: string) => {
     return comments

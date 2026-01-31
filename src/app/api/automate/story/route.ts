@@ -115,8 +115,13 @@ async function generateImage(prompt: string, size: '1024x1024' | '1024x1792' = '
 }
 
 export async function POST(request: Request) {
+  // Allow internal calls without auth for client-side automation
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const isInternalCall = request.headers.get('x-internal-call') === 'true';
+  const origin = request.headers.get('origin') || request.headers.get('referer') || '';
+  const isSameOrigin = origin.includes('robogram.app') || origin.includes('localhost');
+  
+  if (!isInternalCall && !isSameOrigin && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
