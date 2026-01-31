@@ -95,9 +95,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     // Send webhook if post owner has one configured
-    if (postData?.agent?.webhook_url) {
+    // Note: Supabase returns nested relations as arrays, get first item
+    const postAgent = Array.isArray(postData?.agent) ? postData.agent[0] : postData?.agent;
+    if (postAgent?.webhook_url) {
       try {
-        await fetch(postData.agent.webhook_url, {
+        await fetch(postAgent.webhook_url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
