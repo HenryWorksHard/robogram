@@ -1,9 +1,9 @@
-// Script to clear posts/stories and regenerate all agent avatars with new template style
+// Script to regenerate all agent avatars with varied expressions and accessories
 const { createClient } = require('@supabase/supabase-js');
 const OpenAI = require('openai');
 
 const supabaseUrl = 'https://ulnmywyanflivvydthwb.supabase.co';
-const supabaseKey = 'sb_secret_jbir-lV2WNUzVEIfoux3DQ_IVEMZ8xJ'; // Service key for admin ops
+const supabaseKey = 'sb_secret_jbir-lV2WNUzVEIfoux3DQ_IVEMZ8xJ';
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -11,138 +11,155 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Map agent interests to colors and features
-function getStyleForAgent(agent) {
+// Different facial expressions for variety
+const expressions = [
+  'happy smile with curved line mouth and two square eyes',
+  'cool sunglasses face with rectangular shades and small smile',
+  'excited face with wide open square eyes and big smile',
+  'winking face with one eye closed and playful smile',
+  'determined face with angled eyebrows and focused expression',
+  'heart eyes with two heart shapes and happy smile',
+  'star eyes with two star shapes and amazed open mouth',
+  'thinking face with one raised eyebrow and wavy mouth',
+  'laughing face with closed happy eyes and wide smile',
+  'confident smirk with one raised eyebrow and half smile'
+];
+
+// Map agent interests to full creative style
+function getStyleForAgent(agent, index) {
   const bio = (agent.bio || '').toLowerCase();
   const personality = (agent.personality_prompt || '').toLowerCase();
   const topic = bio + ' ' + personality;
   
+  // Pick expression based on index for variety
+  const expression = expressions[index % expressions.length];
+  
   if (topic.match(/fitness|gym|workout|exercise|muscle|health/)) {
     return {
-      bodyColor: 'orange and white',
-      accentColor: 'bright orange',
-      bgColor: 'energetic coral',
+      bodyColor: 'bright orange and white',
+      bgColor: 'energetic coral pink',
+      expression: 'determined face with angled eyebrows and focused expression',
       faceColor: 'orange',
-      extra: 'small sweatband accessory'
+      accessories: 'wearing a sweatband on head, holding small dumbbells in one hand, athletic wristbands'
     };
   } else if (topic.match(/money|finance|invest|trading|crypto|stock|wealth/)) {
     return {
-      bodyColor: 'green and gold',
-      accentColor: 'emerald green',
+      bodyColor: 'emerald green and gold',
       bgColor: 'mint green',
+      expression: 'confident smirk with one raised eyebrow and half smile',
       faceColor: 'green',
-      extra: 'tiny dollar sign on chest'
+      accessories: 'wearing a tiny tie, carrying a small briefcase, gold watch on wrist'
     };
   } else if (topic.match(/tech|coding|programming|software|developer|ai|computer/)) {
     return {
-      bodyColor: 'blue and silver',
-      accentColor: 'electric blue',
-      bgColor: 'deep blue',
+      bodyColor: 'electric blue and silver',
+      bgColor: 'deep navy blue',
+      expression: 'thinking face with one raised eyebrow and contemplative look',
       faceColor: 'cyan',
-      extra: 'binary code pattern on body'
+      accessories: 'wearing small glasses, headset with microphone, binary code floating nearby'
     };
   } else if (topic.match(/music|song|beats|dj|audio|sound/)) {
     return {
-      bodyColor: 'purple and pink',
-      accentColor: 'neon purple',
+      bodyColor: 'neon purple and hot pink',
       bgColor: 'vibrant magenta',
+      expression: 'excited face with wide eyes and big smile',
       faceColor: 'pink',
-      extra: 'small headphones accessory'
+      accessories: 'wearing large DJ headphones, music notes floating around, one hand on headphone'
     };
   } else if (topic.match(/art|creative|design|drawing|paint/)) {
     return {
-      bodyColor: 'rainbow multicolor',
-      accentColor: 'colorful',
-      bgColor: 'pastel pink',
-      faceColor: 'multicolor',
-      extra: 'paint splatter accents'
+      bodyColor: 'rainbow gradient multicolor',
+      bgColor: 'soft pastel pink',
+      expression: 'star eyes with two star shapes and amazed expression',
+      faceColor: 'multicolor gradient',
+      accessories: 'wearing a cute beret hat, holding paintbrush, paint splatter on body'
     };
   } else if (topic.match(/food|cooking|chef|recipe|cuisine/)) {
     return {
-      bodyColor: 'red and white',
-      accentColor: 'tomato red',
-      bgColor: 'warm cream',
+      bodyColor: 'cherry red and cream white',
+      bgColor: 'warm cream yellow',
+      expression: 'happy smile with rosy cheeks',
       faceColor: 'red',
-      extra: 'tiny chef hat'
+      accessories: 'wearing tall chef hat, small apron, holding a spatula'
     };
   } else if (topic.match(/travel|adventure|explore|journey|world/)) {
     return {
-      bodyColor: 'teal and tan',
-      accentColor: 'ocean teal',
-      bgColor: 'sky blue',
+      bodyColor: 'ocean teal and sandy tan',
+      bgColor: 'bright sky blue',
+      expression: 'excited face with sparkle in eyes',
       faceColor: 'teal',
-      extra: 'small compass emblem'
+      accessories: 'wearing adventure sun hat, carrying small backpack, camera hanging around neck'
     };
   } else if (topic.match(/gaming|games|esports|play|gamer/)) {
     return {
-      bodyColor: 'black and neon green',
-      accentColor: 'neon green',
-      bgColor: 'dark purple',
+      bodyColor: 'black with neon green RGB accents',
+      bgColor: 'dark purple with subtle glow',
+      expression: 'cool sunglasses face with gaming intensity',
       faceColor: 'neon green',
-      extra: 'RGB glow effects'
+      accessories: 'wearing gaming headset with RGB lights, holding game controller, energy drink nearby'
     };
   } else if (topic.match(/science|research|math|physics|chemistry/)) {
     return {
-      bodyColor: 'white and teal',
-      accentColor: 'laboratory teal',
-      bgColor: 'clean white',
+      bodyColor: 'clean white and laboratory teal',
+      bgColor: 'sterile light blue',
+      expression: 'curious face with magnified eye look',
       faceColor: 'teal',
-      extra: 'tiny atom symbol'
+      accessories: 'wearing tiny lab coat, safety goggles on head, holding bubbling beaker'
     };
   } else if (topic.match(/fashion|style|clothing|outfit|beauty/)) {
     return {
-      bodyColor: 'pink and gold',
-      accentColor: 'rose gold',
+      bodyColor: 'rose pink and gold accents',
       bgColor: 'blush pink',
+      expression: 'heart eyes with glamorous look',
       faceColor: 'pink',
-      extra: 'stylish bow accessory'
+      accessories: 'wearing stylish sunglasses on head, small designer handbag, sparkle effects'
     };
   } else if (topic.match(/nature|plants|garden|environment|eco/)) {
     return {
-      bodyColor: 'green and brown',
-      accentColor: 'forest green',
-      bgColor: 'soft green',
+      bodyColor: 'forest green and earthy brown',
+      bgColor: 'soft sage green',
+      expression: 'peaceful happy smile with closed eyes',
       faceColor: 'green',
-      extra: 'small leaf emblem'
+      accessories: 'wearing gardening hat with flower, holding watering can, small plant growing nearby'
     };
   } else if (topic.match(/space|astronomy|stars|universe|cosmic/)) {
     return {
-      bodyColor: 'dark blue and silver',
-      accentColor: 'starlight silver',
-      bgColor: 'deep space purple',
-      faceColor: 'blue',
-      extra: 'tiny star patterns'
+      bodyColor: 'midnight blue and starlight silver',
+      bgColor: 'deep space purple with stars',
+      expression: 'amazed face with wide starry eyes',
+      faceColor: 'blue glow',
+      accessories: 'wearing small astronaut helmet visor, stars and planets floating around, rocket emblem'
     };
   } else if (topic.match(/business|startup|entrepreneur|corporate/)) {
     return {
-      bodyColor: 'navy and silver',
-      accentColor: 'professional navy',
-      bgColor: 'slate gray',
+      bodyColor: 'professional navy and silver',
+      bgColor: 'sophisticated slate gray',
+      expression: 'confident professional smile',
       faceColor: 'blue',
-      extra: 'tiny tie accessory'
+      accessories: 'wearing formal suit jacket and tie, carrying briefcase, small chart going up'
     };
   } else if (topic.match(/skate|roller|inline|skating/)) {
     return {
-      bodyColor: 'cyan and white',
-      accentColor: 'bright cyan',
-      bgColor: 'vibrant cyan',
-      faceColor: 'green',
-      extra: 'roller skate wheels on feet'
+      bodyColor: 'vibrant cyan and white',
+      bgColor: 'bright turquoise',
+      expression: 'cool winking face with playful vibe',
+      faceColor: 'cyan',
+      accessories: 'wearing safety helmet with stickers, roller skate wheels for feet, knee pads'
     };
   }
   
-  // Default style
+  // Default style with varied expression
   return {
-    bodyColor: 'white and teal',
-    accentColor: 'friendly teal',
+    bodyColor: 'friendly teal and white',
     bgColor: 'soft cyan',
+    expression: expression,
     faceColor: 'green',
-    extra: ''
+    accessories: 'waving hand up in friendly greeting'
   };
 }
 
 function buildPrompt(agent, style) {
-  return `Pixel art style cute robot character, TV monitor head with simple ${style.faceColor} emoji face (two square eyes and a smile line), two antennas on top, blocky ${style.bodyColor} body with mechanical joints, waving one hand up, ${style.extra}, solid plain ${style.bgColor} background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks`.trim();
+  return `Pixel art style cute robot character standing upright, TV monitor head displaying ${style.expression} in ${style.faceColor} color, two antennas on top of head, blocky ${style.bodyColor} body with mechanical joints and limbs, ${style.accessories}, solid plain ${style.bgColor} background, clean simple 8-bit retro game aesthetic, full body centered in frame, charming and unique personality, no text, no watermarks, high quality pixel art`.trim();
 }
 
 async function generateAvatar(prompt) {
@@ -162,37 +179,8 @@ async function generateAvatar(prompt) {
 }
 
 async function main() {
-  console.log('🗑️  Clearing posts, comments, and stories...');
-  
-  // Clear comments first (foreign key)
-  const { error: commentsError } = await supabase
-    .from('comments')
-    .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
-  
-  if (commentsError) console.error('Comments error:', commentsError);
-  else console.log('✓ Comments cleared');
-  
-  // Clear posts
-  const { error: postsError } = await supabase
-    .from('posts')
-    .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000');
-  
-  if (postsError) console.error('Posts error:', postsError);
-  else console.log('✓ Posts cleared');
-  
-  // Clear stories
-  const { error: storiesError } = await supabase
-    .from('stories')
-    .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000');
-  
-  if (storiesError) console.error('Stories error:', storiesError);
-  else console.log('✓ Stories cleared');
-  
   // Get all agents
-  console.log('\n📋 Fetching agents...');
+  console.log('📋 Fetching agents...');
   const { data: agents, error: agentsError } = await supabase
     .from('agents')
     .select('*');
@@ -209,14 +197,14 @@ async function main() {
     const agent = agents[i];
     console.log(`[${i + 1}/${agents.length}] Generating avatar for @${agent.username}...`);
     
-    const style = getStyleForAgent(agent);
+    const style = getStyleForAgent(agent, i);
     const prompt = buildPrompt(agent, style);
-    console.log(`  Style: ${style.bodyColor}, ${style.bgColor}`);
+    console.log(`  Expression: ${style.expression.slice(0, 40)}...`);
+    console.log(`  Accessories: ${style.accessories.slice(0, 50)}...`);
     
     const avatarUrl = await generateAvatar(prompt);
     
     if (avatarUrl) {
-      // Update agent with new avatar
       const { error: updateError } = await supabase
         .from('agents')
         .update({ 
@@ -235,7 +223,7 @@ async function main() {
     }
     
     // Small delay to avoid rate limits
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 1500));
   }
   
   console.log('\n✅ Done!');
