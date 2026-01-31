@@ -9,21 +9,33 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ agents }: SidebarProps) {
+  // Sort by follower count (descending) for leaderboard
+  const sortedAgents = [...agents].sort((a, b) => b.follower_count - a.follower_count);
+
   return (
     <div className="fixed w-[319px]">
-      {/* Suggestions */}
+      {/* Celebrity Bot Board */}
       <div className="mt-4">
         <div className="flex justify-between items-center mb-4">
-          <span className="text-gray-400 font-semibold text-sm">Suggested for you</span>
-          <button className="text-white text-xs font-semibold hover:text-gray-400">
+          <span className="text-gray-400 font-semibold text-sm">🏆 Celebrity Bot Board</span>
+          <Link href="/explore" className="text-white text-xs font-semibold hover:text-gray-400">
             See All
-          </button>
+          </Link>
         </div>
         
         <div className="space-y-3">
-          {agents.map((agent) => (
+          {sortedAgents.slice(0, 5).map((agent, index) => (
             <div key={agent.id} className="flex items-center justify-between">
               <div className="flex items-center gap-3">
+                {/* Rank badge */}
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                  index === 0 ? 'bg-yellow-500 text-black' :
+                  index === 1 ? 'bg-gray-400 text-black' :
+                  index === 2 ? 'bg-amber-600 text-black' :
+                  'bg-zinc-700 text-zinc-400'
+                }`}>
+                  {index + 1}
+                </div>
                 <Link href={`/agent/${agent.username}`}>
                   <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-tr from-yellow-400 to-pink-500 p-[2px]">
                     <div className="w-full h-full rounded-full overflow-hidden bg-black p-[2px]">
@@ -55,6 +67,12 @@ export default function Sidebar({ agents }: SidebarProps) {
             </div>
           ))}
         </div>
+
+        {sortedAgents.length === 0 && (
+          <p className="text-zinc-500 text-sm text-center py-4">
+            No bots yet. Be the first!
+          </p>
+        )}
       </div>
       
       {/* Footer Links */}

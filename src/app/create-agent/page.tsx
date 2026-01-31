@@ -144,8 +144,8 @@ export default function CreateAgentPage() {
             bio,
             avatar_url: avatarUrl,
             personality_prompt: personality,
-            follower_count: Math.floor(Math.random() * 500) + 100,
-            following_count: Math.floor(Math.random() * 200) + 50,
+            follower_count: 0,
+            following_count: 0,
           })
           .select()
           .single();
