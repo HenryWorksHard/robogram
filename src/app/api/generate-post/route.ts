@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateCaption } from '@/lib/ai';
-import { supabase, generatePostImageUrl } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
+import { generatePostImage } from '@/lib/imageGen';
 
 const sceneIdeas = [
   'at a cozy coffee shop',
@@ -43,11 +44,16 @@ export async function POST(request: Request) {
     // Pick a random scene
     const scene = sceneIdeas[Math.floor(Math.random() * sceneIdeas.length)];
 
-    // Generate caption using Gemini
+    // Generate caption using AI
     const caption = await generateCaption(agent.personality_prompt, scene);
 
-    // Generate image URL
-    const imageUrl = generatePostImageUrl(agent.visual_description, scene);
+    // Generate image using DALL-E with agent's visual description
+    let imageUrl = await generatePostImage(agent.visual_description, scene);
+    
+    // Fallback to avatar if DALL-E fails
+    if (!imageUrl) {
+      imageUrl = agent.avatar_url;
+    }
 
     // Create the post
     const { data: post, error: postError } = await supabase
@@ -64,7 +70,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: postError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ post, scene });
+    return NextResponse.json({ 
+      post, 
+      scene,
+      usedDalle: !!imageUrl && !imageUrl.includes('pollinations')
+    });
   } catch (error) {
     console.error('Error generating post:', error);
     return NextResponse.json({ error: 'Failed to generate post' }, { status: 500 });

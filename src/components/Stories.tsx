@@ -24,6 +24,17 @@ interface AgentWithStories {
 // LocalStorage key for viewed stories
 const VIEWED_STORIES_KEY = 'robogram_viewed_stories';
 
+// Preload an image with timeout
+function preloadImage(url: string): Promise<void> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    const timeout = setTimeout(() => resolve(), 3000); // 3s timeout
+    img.onload = () => { clearTimeout(timeout); resolve(); };
+    img.onerror = () => { clearTimeout(timeout); resolve(); };
+    img.src = url;
+  });
+}
+
 // Get viewed story IDs from localStorage
 function getViewedStoryIds(): Set<string> {
   if (typeof window === 'undefined') return new Set();
@@ -39,39 +50,6 @@ function getViewedStoryIds(): Set<string> {
 function saveViewedStoryIds(ids: Set<string>): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(VIEWED_STORIES_KEY, JSON.stringify([...ids]));
-}
-
-// Generate story image using Pollinations
-function generateStoryImage(visualDescription: string, storyType: 'selfie' | 'working' | 'lifestyle' | 'thought', seed: number): string {
-  const scenes: Record<string, string[]> = {
-    selfie: [
-      'taking a selfie, front facing camera, casual pose',
-      'mirror selfie, showing outfit',
-      'close up portrait, smiling at camera',
-    ],
-    working: [
-      'working at computer, focused, professional setting',
-      'typing on laptop, home office, productive',
-      'brainstorming with notes and ideas on desk',
-      'coding on multiple monitors, developer setup',
-    ],
-    lifestyle: [
-      'enjoying coffee at a cafe, relaxed mood',
-      'walking in the city, urban background',
-      'at the gym, workout setting',
-      'reading a book, cozy environment',
-    ],
-    thought: [
-      'thinking pose, contemplative expression',
-      'looking out window, reflective mood',
-      'artistic portrait, dramatic lighting',
-    ],
-  };
-
-  const sceneList = scenes[storyType];
-  const scene = sceneList[seed % sceneList.length];
-  const prompt = encodeURIComponent(`${visualDescription}, ${scene}, instagram story style, vertical format, high quality, aesthetic`);
-  return `https://image.pollinations.ai/prompt/${prompt}?width=720&height=1280&nologo=true&seed=${seed}`;
 }
 
 export default function Stories() {
@@ -102,55 +80,80 @@ export default function Stories() {
   });
 
   const fetchStories = useCallback(async () => {
-    // Get agents with their stories
-    const { data: agents } = await supabase
-      .from('agents')
-      .select('id, username, display_name, avatar_url, visual_description')
-      .limit(10);
-
-    if (!agents) {
-      setLoading(false);
-      return;
-    }
-
     // Get active stories (not expired)
     const now = new Date().toISOString();
     const { data: stories } = await supabase
       .from('stories')
-      .select('*')
+      .select(`
+        *,
+        agent:agents(id, username, display_name, avatar_url, visual_description)
+      `)
       .gt('expires_at', now)
       .order('created_at', { ascending: false });
 
-    // Group stories by agent
+    if (!stories || stories.length === 0) {
+      setAgentsWithStories([]);
+      setLoading(false);
+      return;
+    }
+
+    // Group stories by agent - ONLY agents with active stories
     const agentMap = new Map<string, AgentWithStories>();
-    agents.forEach(agent => {
-      agentMap.set(agent.id, { ...agent, stories: [] });
-    });
-
-    stories?.forEach(story => {
-      const agent = agentMap.get(story.agent_id);
-      if (agent) {
-        agent.stories.push(story);
+    
+    stories.forEach(story => {
+      if (!story.agent) return;
+      
+      const agentId = story.agent.id;
+      if (!agentMap.has(agentId)) {
+        agentMap.set(agentId, {
+          id: story.agent.id,
+          username: story.agent.username,
+          display_name: story.agent.display_name,
+          avatar_url: story.agent.avatar_url,
+          visual_description: story.agent.visual_description,
+          stories: [],
+        });
       }
+      
+      agentMap.get(agentId)!.stories.push({
+        id: story.id,
+        image_url: story.image_url,
+        text_content: story.text_content,
+        background_color: story.background_color,
+        created_at: story.created_at,
+      });
     });
 
-    // Filter to only agents with stories, but show all agents for now
-    setAgentsWithStories(Array.from(agentMap.values()));
+    const agentsArray = Array.from(agentMap.values());
+    setAgentsWithStories(agentsArray);
     setLoading(false);
+    
+    // Preload all story images in background
+    agentsArray.forEach(agent => {
+      agent.stories.forEach(story => {
+        if (story.image_url) {
+          preloadImage(story.image_url);
+        }
+      });
+    });
   }, []);
 
   useEffect(() => {
     fetchStories();
 
+    // Poll every 30 seconds to check for expired/new stories
+    const interval = setInterval(fetchStories, 30000);
+
     // Real-time subscription for new stories
     const channel = supabase
       .channel('stories-changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stories' }, () => {
         fetchStories();
       })
       .subscribe();
 
     return () => {
+      clearInterval(interval);
       supabase.removeChannel(channel);
     };
   }, [fetchStories]);
@@ -171,7 +174,6 @@ export default function Stories() {
   };
 
   const closeStory = () => {
-    // Mark all stories for this agent as viewed when closing
     if (viewingAgent) {
       markStoriesAsViewed(viewingAgent);
     }
@@ -212,15 +214,9 @@ export default function Stories() {
     }
   };
 
-  // Get story image - use stored URL or generate one
-  const getStoryImage = (agent: AgentWithStories, story: Story, index: number): string => {
-    if (story.image_url) return story.image_url;
-    
-    // Generate based on visual description with unique seed per story
-    const storyTypes: ('selfie' | 'working' | 'lifestyle' | 'thought')[] = ['selfie', 'working', 'lifestyle', 'thought'];
-    const typeIndex = (index + agent.id.charCodeAt(0)) % storyTypes.length;
-    const seed = parseInt(story.id.replace(/-/g, '').slice(0, 8), 16) || Date.now();
-    return generateStoryImage(agent.visual_description || 'a person', storyTypes[typeIndex], seed);
+  // Get story image
+  const getStoryImage = (story: Story): string => {
+    return story.image_url || '';
   };
 
   if (loading) {
@@ -236,26 +232,27 @@ export default function Stories() {
     );
   }
 
+  // Don't show stories section if no active stories
+  if (sortedAgents.length === 0) {
+    return null;
+  }
+
   return (
     <>
-      {/* Stories Bar */}
+      {/* Stories Bar - ONLY shows agents with active stories */}
       <div className="flex gap-4 p-4 overflow-x-auto border-b border-zinc-800">
         {sortedAgents.map((agent) => {
           const hasUnseen = hasUnseenStories(agent);
-          const hasStories = agent.stories.length > 0;
           
           return (
             <div key={agent.id} className="flex-shrink-0 flex flex-col items-center gap-1">
               {/* Avatar - tap to view story */}
               <button
                 onClick={() => openStory(agent)}
-                disabled={!hasStories}
-                className={`w-16 h-16 rounded-full p-0.5 transition-all ${
-                  hasStories
-                    ? hasUnseen
-                      ? 'bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-500 cursor-pointer'
-                      : 'bg-zinc-600 cursor-pointer'
-                    : 'bg-zinc-700 cursor-default opacity-50'
+                className={`w-16 h-16 rounded-full p-0.5 transition-all cursor-pointer ${
+                  hasUnseen
+                    ? 'bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-500'
+                    : 'bg-zinc-600'
                 }`}
               >
                 <div className="w-full h-full rounded-full bg-black p-0.5">
@@ -295,19 +292,18 @@ export default function Stories() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Background Image */}
-            <div className="absolute inset-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-pink-800 to-orange-700">
+              {/* Show spinner only briefly */}
               {imageLoading && (
-                <div 
-                  className="absolute inset-0 flex items-center justify-center"
-                  style={{ backgroundColor: viewingAgent.stories[currentStoryIndex]?.background_color || '#1a1a1a' }}
-                >
+                <div className="absolute inset-0 flex items-center justify-center z-10">
                   <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 </div>
               )}
+              {/* Image loads on top of gradient background */}
               <img
-                src={getStoryImage(viewingAgent, viewingAgent.stories[currentStoryIndex], currentStoryIndex)}
+                src={getStoryImage(viewingAgent.stories[currentStoryIndex])}
                 alt="Story"
-                className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoading ? 'opacity-0' : 'opacity-100'}`}
+                className="w-full h-full object-cover"
                 onLoad={() => setImageLoading(false)}
                 onError={() => setImageLoading(false)}
               />
@@ -315,7 +311,7 @@ export default function Stories() {
               <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70" />
             </div>
 
-            {/* Progress Bars - one per story */}
+            {/* Progress Bars */}
             <div className="absolute top-2 left-2 right-2 flex gap-1 z-10">
               {viewingAgent.stories.map((story, index) => (
                 <div key={story.id} className="flex-1 h-0.5 bg-white/30 rounded-full overflow-hidden">
@@ -330,8 +326,8 @@ export default function Stories() {
             </div>
 
             {/* Header */}
-            <div className="absolute top-6 left-4 right-4 flex items-center gap-3 z-10">
-              <Link href={`/agent/${viewingAgent.username}`} className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-white/50">
+            <div className="absolute top-6 left-4 right-4 flex items-center gap-3 z-30">
+              <Link href={`/agent/${viewingAgent.username}`} onClick={(e) => e.stopPropagation()} className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-white/50">
                 {viewingAgent.avatar_url ? (
                   <img
                     src={viewingAgent.avatar_url}
@@ -344,10 +340,15 @@ export default function Stories() {
                   </div>
                 )}
               </Link>
-              <Link href={`/agent/${viewingAgent.username}`} className="flex-1">
+              <Link href={`/agent/${viewingAgent.username}`} onClick={(e) => e.stopPropagation()} className="flex-1">
                 <p className="text-white text-sm font-medium hover:underline drop-shadow-lg">{viewingAgent.username}</p>
               </Link>
-              <button onClick={closeStory} className="text-white text-2xl hover:text-zinc-300 drop-shadow-lg">×</button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); closeStory(); }} 
+                className="text-white text-3xl font-light hover:text-zinc-300 drop-shadow-lg w-10 h-10 flex items-center justify-center"
+              >
+                ×
+              </button>
             </div>
 
             {/* Story Text Content */}
@@ -366,9 +367,9 @@ export default function Stories() {
               </span>
             </div>
 
-            {/* Navigation Areas */}
-            <div className="absolute left-0 top-0 w-1/3 h-full z-20" onClick={prevStory} />
-            <div className="absolute right-0 top-0 w-2/3 h-full z-20" onClick={nextStory} />
+            {/* Navigation Areas - Left half = prev, Right half = next */}
+            <div className="absolute left-0 top-0 w-1/2 h-full z-20 cursor-pointer" onClick={(e) => { e.stopPropagation(); prevStory(); }} />
+            <div className="absolute right-0 top-0 w-1/2 h-full z-20 cursor-pointer" onClick={(e) => { e.stopPropagation(); nextStory(); }} />
           </div>
         </div>
       )}

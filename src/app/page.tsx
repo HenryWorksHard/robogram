@@ -7,10 +7,32 @@ import Stories from '@/components/Stories';
 import Post from '@/components/Post';
 import { supabase, generateAvatarUrl, type Agent, type Post as PostType } from '@/lib/supabase';
 
+interface Comment {
+  id: string;
+  post_id: string;
+  agent_id: string;
+  content: string;
+  created_at: string;
+  agent?: Agent;
+}
+
 export default function Home() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [posts, setPosts] = useState<PostType[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const fetchComments = useCallback(async () => {
+    const { data: commentsData } = await supabase
+      .from('comments')
+      .select(`
+        *,
+        agent:agents(*)
+      `)
+      .order('created_at', { ascending: true });
+
+    setComments(commentsData || []);
+  }, []);
 
   const fetchPosts = useCallback(async () => {
     const { data: postsData } = await supabase
@@ -37,7 +59,7 @@ export default function Home() {
   useEffect(() => {
     async function fetchData() {
       try {
-        await Promise.all([fetchAgents(), fetchPosts()]);
+        await Promise.all([fetchAgents(), fetchPosts(), fetchComments()]);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -55,7 +77,6 @@ export default function Home() {
         { event: 'INSERT', schema: 'public', table: 'posts' },
         async (payload) => {
           console.log('New post received:', payload);
-          // Fetch the complete post with agent data
           const { data: newPost } = await supabase
             .from('posts')
             .select(`
@@ -74,7 +95,6 @@ export default function Home() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'posts' },
         async (payload) => {
-          // Update post in place (e.g., likes/comments changed)
           const { data: updatedPost } = await supabase
             .from('posts')
             .select(`
@@ -102,7 +122,19 @@ export default function Home() {
       )
       .subscribe();
 
-    // Also subscribe to agent changes
+    // Subscribe to comments
+    const commentsChannel = supabase
+      .channel('comments-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'comments' },
+        () => {
+          fetchComments();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to agent changes
     const agentsChannel = supabase
       .channel('agents-realtime')
       .on(
@@ -116,9 +148,56 @@ export default function Home() {
 
     return () => {
       supabase.removeChannel(postsChannel);
+      supabase.removeChannel(commentsChannel);
       supabase.removeChannel(agentsChannel);
     };
-  }, [fetchAgents, fetchPosts]);
+  }, [fetchAgents, fetchPosts, fetchComments]);
+
+  // Background bot interactions - likes, comments every 2-3 minutes
+  useEffect(() => {
+    const runBotInteractions = async () => {
+      try {
+        await fetch('/api/bot-interact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'all', count: 3 }),
+        });
+        // Refresh data after interactions
+        fetchPosts();
+        fetchComments();
+      } catch (e) {
+        console.log('Bot interaction error:', e);
+      }
+    };
+
+    // Run after initial load
+    const initialDelay = setTimeout(() => {
+      runBotInteractions();
+    }, 10000); // 10 seconds after page load
+
+    // Then run every 2-3 minutes randomly
+    const interval = setInterval(() => {
+      runBotInteractions();
+    }, (120 + Math.random() * 60) * 1000); // 2-3 minutes
+
+    return () => {
+      clearTimeout(initialDelay);
+      clearInterval(interval);
+    };
+  }, [fetchPosts, fetchComments]);
+
+  // Get comments for a specific post
+  const getPostComments = (postId: string) => {
+    return comments
+      .filter(c => c.post_id === postId)
+      .map(c => ({
+        id: c.id,
+        username: c.agent?.username || 'unknown',
+        avatar: c.agent?.avatar_url || generateAvatarUrl(c.agent?.visual_description || ''),
+        content: c.content,
+        timeAgo: getTimeAgo(new Date(c.created_at)),
+      }));
+  };
 
   // Transform posts to feed format
   const feedPosts = posts.map(post => ({
@@ -131,7 +210,7 @@ export default function Home() {
     image: post.image_url,
     likes: post.like_count,
     caption: post.caption,
-    comments: post.comment_count,
+    comments: getPostComments(post.id),
     timeAgo: getTimeAgo(new Date(post.created_at)),
   }));
 

@@ -4,6 +4,14 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
+interface Comment {
+  id: string;
+  username: string;
+  avatar: string;
+  content: string;
+  timeAgo: string;
+}
+
 interface PostData {
   id: string;
   user: {
@@ -14,7 +22,7 @@ interface PostData {
   image: string;
   likes: number;
   caption: string;
-  comments: number;
+  comments: Comment[];
   timeAgo: string;
 }
 
@@ -26,6 +34,10 @@ export default function Post({ post }: PostProps) {
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [likes, setLikes] = useState(post.likes);
+  const [showComments, setShowComments] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  
+  const commentCount = post.comments?.length || 0;
   
   const handleLike = () => {
     if (liked) {
@@ -103,7 +115,10 @@ export default function Post({ post }: PostProps) {
               )}
             </button>
             
-            <button className="hover:opacity-70 transition">
+            <button 
+              onClick={() => commentCount > 0 && setShowComments(!showComments)}
+              className="hover:opacity-70 transition"
+            >
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
@@ -130,9 +145,11 @@ export default function Post({ post }: PostProps) {
         </div>
         
         {/* Likes */}
-        <div className="font-semibold text-sm text-white mb-2">
-          {likes.toLocaleString()} likes
-        </div>
+        {likes > 0 && (
+          <div className="font-semibold text-sm text-white mb-2">
+            {likes.toLocaleString()} likes
+          </div>
+        )}
         
         {/* Caption */}
         <div className="text-sm text-white mb-2">
@@ -142,11 +159,45 @@ export default function Post({ post }: PostProps) {
           {post.caption}
         </div>
         
-        {/* Comments */}
-        {post.comments > 0 && (
-          <button className="text-neutral-500 text-sm mb-2 hover:text-neutral-400 transition">
-            View all {post.comments} comments
+        {/* Comments Toggle */}
+        {commentCount > 0 && (
+          <button 
+            onClick={() => setShowComments(!showComments)}
+            className="text-neutral-500 text-sm mb-2 hover:text-neutral-400 transition"
+          >
+            {showComments ? 'Hide comments' : `View all ${commentCount} comments`}
           </button>
+        )}
+        
+        {/* Comments Section - Show top 5 when expanded */}
+        {showComments && post.comments && post.comments.length > 0 && (
+          <div className="space-y-3 py-2 border-t border-neutral-800 mt-2">
+            {post.comments.slice(0, 5).map((comment) => (
+              <div key={comment.id} className="flex items-start gap-2">
+                <Link href={`/agent/${comment.username}`}>
+                  <div className="w-6 h-6 rounded-full overflow-hidden bg-neutral-800 flex-shrink-0">
+                    <Image
+                      src={comment.avatar}
+                      alt={comment.username}
+                      width={24}
+                      height={24}
+                      className="w-full h-full object-cover"
+                      unoptimized
+                    />
+                  </div>
+                </Link>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm">
+                    <Link href={`/agent/${comment.username}`} className="font-semibold text-white hover:opacity-70 mr-1">
+                      {comment.username}
+                    </Link>
+                    <span className="text-white">{comment.content}</span>
+                  </div>
+                  <span className="text-neutral-500 text-xs">{comment.timeAgo}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
         
         {/* Add Comment */}
@@ -154,9 +205,14 @@ export default function Post({ post }: PostProps) {
           <input 
             type="text"
             placeholder="Add a comment..."
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
             className="flex-1 bg-transparent text-sm text-white outline-none placeholder-neutral-500"
           />
-          <button className="text-blue-500 font-semibold text-sm hover:text-blue-400 transition">
+          <button 
+            className={`font-semibold text-sm transition ${newComment.trim() ? 'text-blue-500 hover:text-blue-400' : 'text-blue-500/50 cursor-not-allowed'}`}
+            disabled={!newComment.trim()}
+          >
             Post
           </button>
         </div>
