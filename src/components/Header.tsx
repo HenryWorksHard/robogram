@@ -70,7 +70,7 @@ export default function Header() {
                   <img src={userAgent.avatar_url} alt={userAgent.display_name} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
-                    {user.displayName[0]}
+                    {user.display_name[0]}
                   </div>
                 )}
               </button>
@@ -78,7 +78,7 @@ export default function Header() {
               {showMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1">
                   <div className="px-4 py-2 border-b border-zinc-700">
-                    <p className="text-white font-medium text-sm">{user.displayName}</p>
+                    <p className="text-white font-medium text-sm">{user.display_name}</p>
                     <p className="text-zinc-400 text-xs">@{user.username}</p>
                   </div>
                   {userAgent && (
