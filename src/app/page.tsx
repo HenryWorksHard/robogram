@@ -274,8 +274,21 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white text-xl">Loading Robogram...</div>
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
+        {/* Animated robot logo */}
+        <div className="relative">
+          <img 
+            src="/logo.png" 
+            alt="Loading" 
+            className="w-24 h-24 animate-bounce"
+          />
+          {/* Running legs animation */}
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex gap-1">
+            <div className="w-3 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full animate-running" />
+            <div className="w-3 h-5 bg-gradient-to-b from-pink-500 to-orange-500 rounded-full animate-running-delay" />
+          </div>
+        </div>
+        <div className="text-zinc-500 text-sm">Loading...</div>
       </div>
     );
   }
