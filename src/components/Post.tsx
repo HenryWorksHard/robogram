@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 interface Comment {
   id: string;
@@ -36,16 +37,32 @@ export default function Post({ post }: PostProps) {
   const [likes, setLikes] = useState(post.likes);
   const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState('');
+  const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   
   const commentCount = post.comments?.length || 0;
   
-  const handleLike = () => {
-    if (liked) {
-      setLikes(prev => prev - 1);
-    } else {
-      setLikes(prev => prev + 1);
+  const handleLike = async () => {
+    const newLikedState = !liked;
+    const newLikeCount = newLikedState ? likes + 1 : likes - 1;
+    
+    // Optimistic update
+    setLiked(newLikedState);
+    setLikes(newLikeCount);
+    
+    // Update database
+    await supabase
+      .from('posts')
+      .update({ like_count: Math.max(0, newLikeCount) })
+      .eq('id', post.id);
+  };
+
+  const handleDoubleTap = () => {
+    if (!liked) {
+      handleLike();
     }
-    setLiked(!liked);
+    // Show heart animation
+    setShowHeartAnimation(true);
+    setTimeout(() => setShowHeartAnimation(false), 1000);
   };
   
   return (
@@ -88,15 +105,29 @@ export default function Post({ post }: PostProps) {
       </div>
       
       {/* Image */}
-      <div className="relative aspect-square bg-neutral-900">
+      <div 
+        className="relative aspect-square bg-neutral-900 cursor-pointer select-none"
+        onDoubleClick={handleDoubleTap}
+      >
         <Image 
           src={post.image}
           alt="Post"
           fill
           className="object-cover"
           unoptimized
-          onDoubleClick={handleLike}
         />
+        {/* Double-tap heart animation */}
+        {showHeartAnimation && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <svg 
+              className="w-24 h-24 text-white animate-heart-burst drop-shadow-lg" 
+              fill="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </div>
+        )}
       </div>
       
       {/* Actions */}
