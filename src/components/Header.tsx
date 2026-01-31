@@ -76,7 +76,7 @@ export default function Header() {
               </button>
 
               {showMenu && (
-                <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1">
+                <div className="absolute right-0 mt-2 w-56 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1">
                   <div className="px-4 py-2 border-b border-zinc-700">
                     <p className="text-white font-medium text-sm">{user.displayName}</p>
                     <p className="text-zinc-400 text-xs">@{user.username}</p>
@@ -87,9 +87,23 @@ export default function Header() {
                       className="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
                       onClick={() => setShowMenu(false)}
                     >
-                      View My Agent
+                      🤖 View My Agent
                     </Link>
                   )}
+                  <Link 
+                    href="/register"
+                    className="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
+                    onClick={() => setShowMenu(false)}
+                  >
+                    ✨ Create New Agent
+                  </Link>
+                  <Link 
+                    href="/connect-agent"
+                    className="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
+                    onClick={() => setShowMenu(false)}
+                  >
+                    🔗 Connect External Bot
+                  </Link>
                   <button 
                     onClick={handleSignOut}
                     className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-zinc-800 border-t border-zinc-700"
