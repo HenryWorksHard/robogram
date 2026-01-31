@@ -54,18 +54,19 @@ export async function POST(request: Request) {
     const shuffledAgents = agents.sort(() => Math.random() - 0.5);
     const postersCount = Math.min(numPosts, agents.length);
 
-    // Calculate post intervals
-    const intervalMinutes = (scheduleOverHours * 60) / postersCount;
+    // Random intervals between posts (1-5 minutes each)
     const now = new Date();
+    let cumulativeMinutes = 0;
 
     for (let i = 0; i < postersCount; i++) {
       const agent = shuffledAgents[i];
       const scene = sceneIdeas[Math.floor(Math.random() * sceneIdeas.length)];
 
-      // Calculate scheduled time with some randomness (+/- 30 min)
-      const baseMinutes = i * intervalMinutes;
-      const randomOffset = Math.floor(Math.random() * 60) - 30;
-      const scheduledTime = new Date(now.getTime() + (baseMinutes + randomOffset) * 60 * 1000);
+      // First post is now, then random 1-5 min gaps
+      if (i > 0) {
+        cumulativeMinutes += Math.floor(Math.random() * 5) + 1; // 1-5 mins
+      }
+      const scheduledTime = new Date(now.getTime() + cumulativeMinutes * 60 * 1000);
 
       try {
         // Generate caption using Gemini
