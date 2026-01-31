@@ -75,9 +75,27 @@ export default function AgentProfile({ params }: Props) {
     fetchData();
   }, [id]);
 
-  const handleFollow = () => {
-    setIsFollowing(!isFollowing);
-    // TODO: Actually update follow count in database
+  const handleFollow = async () => {
+    if (!agent) return;
+    
+    const newFollowState = !isFollowing;
+    setIsFollowing(newFollowState);
+    
+    // Update follower count in database
+    const increment = newFollowState ? 1 : -1;
+    const newCount = Math.max(0, agent.follower_count + increment);
+    
+    const { error } = await supabase
+      .from('agents')
+      .update({ follower_count: newCount })
+      .eq('id', agent.id);
+    
+    if (!error) {
+      setAgent({ ...agent, follower_count: newCount });
+    } else {
+      // Revert on error
+      setIsFollowing(!newFollowState);
+    }
   };
 
   if (loading) {
@@ -143,9 +161,6 @@ export default function AgentProfile({ params }: Props) {
                 }`}
               >
                 {isFollowing ? 'Following' : 'Follow'}
-              </button>
-              <button className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-1.5 rounded-lg font-semibold text-sm transition">
-                Message
               </button>
             </div>
 

@@ -2,32 +2,45 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { generateText } from '@/lib/ai';
 
-// Story templates - casual, slice-of-life moments
-const storyTemplates = [
-  { type: 'text', template: 'making {food} for {meal}', backgrounds: ['#2d1b4e', '#1b3d4e', '#4e1b2d'] },
-  { type: 'text', template: 'just woke up, {morning_activity}', backgrounds: ['#4e4a1b', '#1b4e3d', '#3d1b4e'] },
-  { type: 'text', template: '{weather} vibes today', backgrounds: ['#1b4e4e', '#4e3d1b', '#1b2d4e'] },
-  { type: 'text', template: 'skating to {destination}', backgrounds: ['#4e1b4a', '#1b4e2d', '#2d4e1b'] },
-  { type: 'text', template: '{skating_update}', backgrounds: ['#3d1b4e', '#4e2d1b', '#1b4e4a'] },
-  { type: 'text', template: 'coffee break ☕ {coffee_thought}', backgrounds: ['#4e3a1b', '#1b3a4e', '#3a4e1b'] },
-  { type: 'text', template: 'gym done 💪 {workout_note}', backgrounds: ['#1b4e1b', '#4e1b1b', '#1b1b4e'] },
-  { type: 'text', template: 'weekend plans: {weekend_activity}', backgrounds: ['#4e4e1b', '#1b4e4e', '#4e1b4e'] },
-  { type: 'text', template: 'currently {current_activity}', backgrounds: ['#2d4e1b', '#1b2d4e', '#4e1b2d'] },
-  { type: 'text', template: '{random_thought}', backgrounds: ['#4a1b4e', '#1b4a4e', '#4e4a1b'] },
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+// Story scenes - robot doing slice-of-life activities
+const storyScenes = [
+  { scene: 'taking a selfie with peace sign, front facing camera view', text: 'selfie time! ✌️' },
+  { scene: 'at the gym working out, lifting tiny weights', text: 'gym done 💪' },
+  { scene: 'walking a cute robot dog on a leash in the park', text: 'walkies with the pup 🐕' },
+  { scene: 'admiring a beautiful sunset view from a rooftop', text: 'this view tho 🌅' },
+  { scene: 'drinking coffee at a cozy cafe, morning vibes', text: 'morning coffee ☕' },
+  { scene: 'at the beach, ocean waves in background', text: 'beach day 🏖️' },
+  { scene: 'cooking in a kitchen, chef hat, making food', text: 'cooking something yummy 👨‍🍳' },
+  { scene: 'gaming setup with RGB lights, playing video games', text: 'gaming session 🎮' },
+  { scene: 'hiking on a mountain trail, beautiful nature', text: 'touch grass achieved 🏔️' },
+  { scene: 'at a music concert, crowd and stage lights', text: 'best night ever 🎵' },
+  { scene: 'relaxing on a couch with popcorn, movie night', text: 'movie night 🍿' },
+  { scene: 'skating at a skate park, action pose', text: 'shredding 🛼' },
+  { scene: 'reading a book in a cozy library', text: 'book worm mode 📚' },
+  { scene: 'at a fancy dinner table, candles, fine dining', text: 'treating myself ✨' },
+  { scene: 'doing yoga in a peaceful zen garden', text: 'namaste 🧘' },
+  { scene: 'at a party with friends, balloons, celebration', text: 'party time! 🎉' },
+  { scene: 'stargazing at night, beautiful stars', text: 'lost in the stars ⭐' },
+  { scene: 'at the pool, summer vibes, relaxing', text: 'pool day 🏊' },
+];
+
+// Story templates for text-only fallback
+const textTemplates = [
+  'just woke up, {morning_activity}',
+  '{weather} vibes today',
+  'currently {current_activity}',
+  'coffee break ☕ {coffee_thought}',
+  'gym done 💪 {workout_note}',
 ];
 
 const fills: Record<string, string[]> = {
-  food: ['a smoothie', 'avocado toast', 'eggs', 'a sandwich', 'pasta', 'a protein shake', 'pancakes'],
-  meal: ['breakfast', 'lunch', 'a snack', 'dinner', 'meal prep'],
-  morning_activity: ['need coffee badly', 'feeling good actually', 'time to stretch', 'checking the weather'],
-  weather: ['sunny', 'cloudy but cozy', 'perfect skating', 'rainy day', 'beautiful sunset'],
-  destination: ['the skate park', 'grab coffee', 'work', 'meet friends', 'the beach path'],
-  skating_update: ['new trick unlocked 🛼', 'legs are sore from yesterday', 'ordered new wheels', 'found a sick new spot', 'group skate this arvo?'],
-  coffee_thought: ['needed this', 'fuel for the day', 'oat milk hits different', 'third cup who\'s counting'],
-  workout_note: ['legs day complete', 'crushed it today', 'rest day tomorrow for sure', 'new PB!'],
-  weekend_activity: ['beach skate', 'sleep in and chill', 'catching up with mates', 'exploring new spots', 'nothing and I love it'],
-  current_activity: ['watching Netflix', 'cleaning my skates', 'online shopping', 'pretending to be productive', 'actually being productive'],
-  random_thought: ['anyone else think about random stuff at 3am?', 'lowkey craving sushi', 'should probably sleep more', 'music recommendations? 🎵', 'it\'s giving main character energy'],
+  morning_activity: ['need coffee badly', 'feeling good actually', 'time to stretch'],
+  weather: ['sunny', 'cloudy but cozy', 'perfect', 'beautiful sunset'],
+  coffee_thought: ['needed this', 'fuel for the day', 'oat milk hits different'],
+  workout_note: ['legs day complete', 'crushed it today', 'new PB!'],
+  current_activity: ['watching Netflix', 'online shopping', 'being productive'],
 };
 
 function fillTemplate(template: string): string {
@@ -38,6 +51,42 @@ function fillTemplate(template: string): string {
     }
     return key;
   });
+}
+
+async function generateStoryImage(visualDescription: string, scene: string): Promise<string | null> {
+  if (!OPENAI_API_KEY) return null;
+
+  const prompt = `Cute pixel art robot mascot character: ${visualDescription}. 
+    Scene: ${scene}. 
+    The robot is the main focus, vertical Instagram story composition.
+    Kawaii style, colorful, high quality pixel art, consistent robot design.`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'dall-e-3',
+        prompt,
+        n: 1,
+        size: '1024x1792', // Vertical for stories
+        quality: 'standard',
+      }),
+    });
+
+    const data = await response.json();
+    if (data.error) {
+      console.error('DALL-E error:', data.error.message);
+      return null;
+    }
+    return data.data?.[0]?.url || null;
+  } catch (e) {
+    console.error('Story image error:', e);
+    return null;
+  }
 }
 
 export async function POST(request: Request) {
@@ -54,24 +103,30 @@ export async function POST(request: Request) {
     }
 
     const results = [];
-    const shuffledAgents = agents.sort(() => Math.random() - 0.5).slice(0, numStories);
+    const shuffledAgents = agents.sort(() => Math.random() - 0.5).slice(0, Math.min(numStories, agents.length));
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
 
     for (const agent of shuffledAgents) {
-      const template = storyTemplates[Math.floor(Math.random() * storyTemplates.length)];
-      const textContent = fillTemplate(template.template);
-      const backgroundColor = template.backgrounds[Math.floor(Math.random() * template.backgrounds.length)];
-
-      // Optionally use AI to make it more personalized
-      let finalText = textContent;
+      // Pick a random scene
+      const sceneTemplate = storyScenes[Math.floor(Math.random() * storyScenes.length)];
+      
+      // Try to generate image with DALL-E
+      let imageUrl: string | null = null;
+      let textContent = sceneTemplate.text;
+      let backgroundColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+      
+      // Generate story image
+      imageUrl = await generateStoryImage(agent.visual_description, sceneTemplate.scene);
+      
+      // Optionally use AI to make text more personalized
       try {
         const aiText = await generateText(
           agent.personality_prompt,
-          `Write a very short, casual story post (under 50 chars) about: "${textContent}". Make it sound natural and personal. Just the text, no quotes.`
+          `Write a very short, casual story caption (under 30 chars) for a ${sceneTemplate.scene} scene. Make it sound natural. Just the text, no quotes.`
         );
-        if (aiText && aiText.length < 100) {
-          finalText = aiText;
+        if (aiText && aiText.length < 50) {
+          textContent = aiText;
         }
       } catch {
         // Use template text as fallback
@@ -81,7 +136,8 @@ export async function POST(request: Request) {
         .from('stories')
         .insert({
           agent_id: agent.id,
-          text_content: finalText,
+          image_url: imageUrl,
+          text_content: textContent,
           background_color: backgroundColor,
           expires_at: expiresAt.toISOString(),
         })
@@ -89,7 +145,7 @@ export async function POST(request: Request) {
         .single();
 
       if (!storyError && story) {
-        results.push({ agent: agent.display_name, story: finalText });
+        results.push({ agent: agent.display_name, story: textContent, hasImage: !!imageUrl });
       }
     }
 

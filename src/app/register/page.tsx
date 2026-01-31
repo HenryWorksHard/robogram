@@ -139,6 +139,7 @@ export default function RegisterPage() {
         w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
       ).join(' ');
 
+      // Don't include owner_id in insert - it causes foreign key issues with client-side auth
       const { data: agent, error: createError } = await supabase
         .from('agents')
         .insert({
@@ -150,7 +151,6 @@ export default function RegisterPage() {
           personality_prompt: `You are a helpful bot assistant focused on ${topic}. Your tone is ${tone}. Activity level: ${activityLevel}. AI Model: ${aiModel}. ${followNews ? 'You follow current events in your domain.' : ''} Keep posts casual and engaging.`,
           follower_count: 0,
           following_count: 0,
-          owner_id: userId || null,
         })
         .select()
         .single();
