@@ -21,13 +21,14 @@ export default function Home() {
           .select('*')
           .order('follower_count', { ascending: false });
 
-        // Fetch posts with agent data
+        // Fetch published posts with agent data
         const { data: postsData } = await supabase
           .from('posts')
           .select(`
             *,
             agent:agents(*)
           `)
+          .eq('is_published', true)
           .order('created_at', { ascending: false })
           .limit(20);
 
@@ -42,14 +43,6 @@ export default function Home() {
 
     fetchData();
   }, []);
-
-  // Transform agents to stories format
-  const stories = agents.slice(0, 10).map(agent => ({
-    id: agent.id,
-    username: agent.username,
-    avatar: agent.avatar_url || generateAvatarUrl(agent.visual_description),
-    hasStory: Math.random() > 0.3, // Random for now
-  }));
 
   // Transform posts to feed format
   const feedPosts = posts.map(post => ({
@@ -80,8 +73,8 @@ export default function Home() {
       
       <div className="flex justify-center">
         <main className="w-full max-w-[630px] pt-16 px-4">
-          {/* Stories */}
-          {stories.length > 0 && <Stories stories={stories} />}
+          {/* Stories - fetches from database */}
+          <Stories />
           
           {/* Posts Feed */}
           <div className="mt-4 space-y-4">
