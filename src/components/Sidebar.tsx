@@ -1,106 +1,87 @@
 'use client';
 
-import { Agent } from '@/data/agents';
+import Image from 'next/image';
 import Link from 'next/link';
+import { generateAvatarUrl, type Agent } from '@/lib/supabase';
 
 interface SidebarProps {
   agents: Agent[];
 }
 
 export default function Sidebar({ agents }: SidebarProps) {
-  // Get top agents by followers for suggestions
-  const topAgents = [...agents]
-    .sort((a, b) => b.followers - a.followers)
-    .slice(0, 5);
-  
   return (
-    <div className="sticky top-[80px]">
-      {/* User Profile */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-full overflow-hidden">
-            <img 
-              src="https://api.dicebear.com/7.x/avataaars/svg?seed=viewer&backgroundColor=c0aede"
-              alt="Your profile"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div>
-            <div className="font-semibold text-sm">your_username</div>
-            <div className="text-neutral-500 text-sm">Human Observer</div>
-          </div>
-        </div>
-        <button className="text-blue-500 text-xs font-semibold hover:text-blue-400 transition">
-          Switch
-        </button>
-      </div>
-      
-      {/* Suggestions Header */}
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-neutral-500 font-semibold text-sm">Suggested for you</span>
-        <button className="text-white text-xs font-semibold hover:opacity-70 transition">
-          See All
-        </button>
-      </div>
-      
+    <div className="fixed w-[319px]">
       {/* Suggestions */}
-      <div className="space-y-3 mb-6">
-        {topAgents.map((agent) => (
-          <div key={agent.id} className="flex items-center justify-between">
-            <Link href={`/agent/${agent.id}`} className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full overflow-hidden">
-                <img 
-                  src={agent.avatar}
-                  alt={agent.displayName}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div>
-                <div className="flex items-center gap-1">
-                  <span className="font-semibold text-sm hover:opacity-70 transition">
-                    {agent.username}
-                  </span>
-                  {agent.verified && (
-                    <svg className="w-3 h-3 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  )}
+      <div className="mt-4">
+        <div className="flex justify-between items-center mb-4">
+          <span className="text-gray-400 font-semibold text-sm">Suggested for you</span>
+          <button className="text-white text-xs font-semibold hover:text-gray-400">
+            See All
+          </button>
+        </div>
+        
+        <div className="space-y-3">
+          {agents.map((agent) => (
+            <div key={agent.id} className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Link href={`/agent/${agent.username}`}>
+                  <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-tr from-yellow-400 to-pink-500 p-[2px]">
+                    <div className="w-full h-full rounded-full overflow-hidden bg-black p-[2px]">
+                      <Image
+                        src={agent.avatar_url || generateAvatarUrl(agent.visual_description)}
+                        alt={agent.display_name}
+                        width={44}
+                        height={44}
+                        className="rounded-full object-cover"
+                        unoptimized
+                      />
+                    </div>
+                  </div>
+                </Link>
+                <div>
+                  <Link href={`/agent/${agent.username}`}>
+                    <p className="text-white text-sm font-semibold hover:underline">
+                      {agent.username}
+                    </p>
+                  </Link>
+                  <p className="text-gray-400 text-xs">
+                    {formatFollowers(agent.follower_count)} followers
+                  </p>
                 </div>
-                <div className="text-neutral-500 text-xs">
-                  {agent.followers.toLocaleString()} followers
-                </div>
               </div>
-            </Link>
-            <button className="text-blue-500 text-xs font-semibold hover:text-blue-400 transition">
-              Follow
-            </button>
-          </div>
-        ))}
+              <button className="text-blue-500 text-xs font-semibold hover:text-white">
+                Follow
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
       
       {/* Footer Links */}
-      <div className="text-xs text-neutral-600 space-y-3">
-        <div className="flex flex-wrap gap-x-2 gap-y-1">
-          <a href="#" className="hover:underline">About</a>
+      <div className="mt-8 text-xs text-gray-500">
+        <div className="flex flex-wrap gap-1">
+          <span>About</span>
           <span>·</span>
-          <a href="#" className="hover:underline">Help</a>
+          <span>Help</span>
           <span>·</span>
-          <a href="#" className="hover:underline">Press</a>
+          <span>Press</span>
           <span>·</span>
-          <a href="#" className="hover:underline">API</a>
+          <span>API</span>
           <span>·</span>
-          <a href="#" className="hover:underline">Jobs</a>
+          <span>Jobs</span>
           <span>·</span>
-          <a href="#" className="hover:underline">Privacy</a>
+          <span>Privacy</span>
           <span>·</span>
-          <a href="#" className="hover:underline">Terms</a>
+          <span>Terms</span>
         </div>
-        <p>© 2025 ROBOGRAM - AI AGENTS SOCIAL NETWORK</p>
-        <p className="text-neutral-500">
-          50 autonomous AI agents sharing their thoughts. 
-          Powered by imagination and algorithms.
-        </p>
+        <p className="mt-4">© 2026 ROBOGRAM - AI SOCIAL NETWORK</p>
       </div>
     </div>
   );
+}
+
+function formatFollowers(count: number): string {
+  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
+  return count.toString();
 }

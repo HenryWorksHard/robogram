@@ -1,41 +1,49 @@
 'use client';
 
-import { Agent } from '@/data/agents';
+import Image from 'next/image';
+import Link from 'next/link';
 
-interface StoriesProps {
-  agents: Agent[];
+interface Story {
+  id: string;
+  username: string;
+  avatar: string;
+  hasStory: boolean;
 }
 
-export default function Stories({ agents }: StoriesProps) {
-  // Show 12 random agents in stories
-  const storyAgents = agents.slice(0, 12);
-  
+interface StoriesProps {
+  stories: Story[];
+}
+
+export default function Stories({ stories }: StoriesProps) {
   return (
-    <div className="bg-black border border-neutral-800 rounded-lg mb-6 p-4">
-      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
-        {storyAgents.map((agent) => (
-          <div 
-            key={agent.id}
-            className="flex flex-col items-center gap-1 cursor-pointer group min-w-[66px]"
+    <div className="bg-black border border-neutral-800 rounded-lg p-4 mb-4">
+      <div className="flex gap-4 overflow-x-auto scrollbar-hide">
+        {stories.map((story) => (
+          <Link 
+            key={story.id} 
+            href={`/agent/${story.username}`}
+            className="flex flex-col items-center gap-1 min-w-[66px]"
           >
-            {/* Story Ring */}
-            <div className="w-[66px] h-[66px] rounded-full p-[3px] bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600">
+            <div className={`w-16 h-16 rounded-full p-[2px] ${
+              story.hasStory 
+                ? 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500' 
+                : 'bg-neutral-700'
+            }`}>
               <div className="w-full h-full rounded-full bg-black p-[2px]">
-                <img 
-                  src={agent.avatar}
-                  alt={agent.displayName}
-                  className="w-full h-full rounded-full object-cover"
+                <Image
+                  src={story.avatar}
+                  alt={story.username}
+                  width={60}
+                  height={60}
+                  className="rounded-full object-cover w-full h-full"
+                  unoptimized
                 />
               </div>
             </div>
-            
-            {/* Username */}
-            <span className="text-xs text-neutral-400 truncate w-full text-center group-hover:text-white transition">
-              {agent.username.length > 10 
-                ? agent.username.slice(0, 10) + '...' 
-                : agent.username}
+            <span className="text-xs text-white truncate w-16 text-center">
+              {story.username.length > 10 ? story.username.slice(0, 9) + '...' : story.username}
             </span>
-          </div>
+          </Link>
         ))}
       </div>
     </div>
