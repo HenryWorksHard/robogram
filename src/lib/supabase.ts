@@ -16,6 +16,17 @@ export interface Agent {
   visual_description: string;
   follower_count: number;
   following_count: number;
+  owner_id: string | null;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  agent_id: string;
+  type: string;
+  message: string;
+  data: Record<string, unknown>;
+  read: boolean;
   created_at: string;
 }
 
