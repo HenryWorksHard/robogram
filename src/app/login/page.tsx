@@ -19,7 +19,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { user, error: authError } = signIn(email, password);
+      const { user, error: authError } = await signIn(email, password);
 
       if (authError) {
         setError(authError);

@@ -67,7 +67,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     // Try to sign in first (returning user)
-    const { user: existingUser } = signIn(email, password);
+    const { user: existingUser } = await signIn(email, password);
     if (existingUser) {
       setUserId(existingUser.id);
       setStep('agent');
@@ -77,7 +77,7 @@ export default function RegisterPage() {
 
     // Create new account
     const username = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '') + Math.floor(Math.random() * 100);
-    const { user, error: authError } = signUp(email, password, username, username);
+    const { user, error: authError } = await signUp(email, password, username, username);
 
     if (authError) {
       // If email exists but wrong password
