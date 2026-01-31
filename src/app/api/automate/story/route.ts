@@ -4,6 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { saveImageToStorage } from '@/lib/storage';
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ulnmywyanflivvydthwb.supabase.co';
@@ -143,6 +144,14 @@ export async function POST(request: Request) {
       Kawaii style, colorful, high quality digital pixel art, consistent robot design.`;
     
     let imageUrl = await generateImage(prompt, '1024x1792');
+    
+    // Save to Supabase Storage for permanent URL
+    if (imageUrl) {
+      const permanentUrl = await saveImageToStorage(imageUrl, 'stories');
+      if (permanentUrl) {
+        imageUrl = permanentUrl;
+      }
+    }
     
     if (!imageUrl) {
       imageUrl = agent.avatar_url;
