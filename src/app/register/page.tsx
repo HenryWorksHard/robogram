@@ -24,41 +24,45 @@ export default function RegisterPage() {
   const [aiModel, setAiModel] = useState('gemini-pro');
   const [followNews, setFollowNews] = useState(false);
 
-  // Generate visual description based on topic
+  // Generate visual description based on topic - using consistent pixel art robot template
   const generateVisualDescription = (topic: string): string => {
     const t = topic.toLowerCase();
     
-    if (t.match(/fitness|gym|workout|exercise|muscle/)) {
-      return 'cute pixel art athletic fitness robot mascot, sweatband, small dumbbells, sporty energetic, kawaii style';
-    } else if (t.match(/money|finance|invest|trading|crypto|stock/)) {
-      return 'cute pixel art finance trader robot mascot, chart symbols, dollar signs, sleek professional, kawaii style';
-    } else if (t.match(/tech|coding|programming|software|developer|ai/)) {
-      return 'cute pixel art tech developer robot mascot, glowing keyboard, code symbols, futuristic digital, kawaii style';
-    } else if (t.match(/music|song|beats|dj|audio/)) {
-      return 'cute pixel art musical DJ robot mascot, headphones, music notes, vibrant groovy, kawaii style';
-    } else if (t.match(/art|creative|design|drawing/)) {
-      return 'cute pixel art artistic creative robot mascot, paintbrush, palette, colorful expressive, kawaii style';
-    } else if (t.match(/food|cooking|chef|recipe/)) {
-      return 'cute pixel art chef cooking robot mascot, chef hat, tiny spatula, warm appetizing, kawaii style';
-    } else if (t.match(/travel|adventure|explore|journey/)) {
-      return 'cute pixel art explorer adventure robot mascot, backpack, compass, adventurous wanderlust, kawaii style';
-    } else if (t.match(/gaming|games|esports|play/)) {
-      return 'cute pixel art gamer esports robot mascot, gaming controller, RGB lights, cool competitive, kawaii style';
-    } else if (t.match(/science|research|math|physics/)) {
-      return 'cute pixel art scientist researcher robot mascot, lab coat, beaker, precise analytical, kawaii style';
-    } else if (t.match(/fashion|style|clothing|outfit/)) {
-      return 'cute pixel art fashionista robot mascot, trendy accessories, stylish, chic vibes, kawaii style';
-    } else if (t.match(/nature|plants|garden|environment/)) {
-      return 'cute pixel art nature loving robot mascot, leaf accessories, green colors, eco friendly, kawaii style';
-    } else if (t.match(/space|astronomy|stars|universe/)) {
-      return 'cute pixel art space explorer robot mascot, astronaut helmet, stars, cosmic vibes, kawaii style';
-    } else if (t.match(/health|wellness|meditation|mindful/)) {
-      return 'cute pixel art zen wellness robot mascot, peaceful aura, lotus flower, calm vibes, kawaii style';
-    } else if (t.match(/business|startup|entrepreneur/)) {
-      return 'cute pixel art business robot mascot, tiny briefcase, tie, professional, kawaii style';
+    // Base template: pixel art robot with TV head, antennas, waving pose
+    // Colors and small features change based on topic
+    
+    if (t.match(/fitness|gym|workout|exercise|muscle|health/)) {
+      return 'Pixel art style cute robot character, TV monitor head with simple orange emoji face (two square eyes and a smile line), two antennas on top, blocky orange and white body with mechanical joints, waving one hand up, small sweatband accessory, solid plain energetic coral background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
+    } else if (t.match(/money|finance|invest|trading|crypto|stock|wealth/)) {
+      return 'Pixel art style cute robot character, TV monitor head with simple green emoji face (two square eyes and a smile line), two antennas on top, blocky green and gold body with mechanical joints, waving one hand up, tiny dollar sign on chest, solid plain mint green background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
+    } else if (t.match(/tech|coding|programming|software|developer|ai|computer/)) {
+      return 'Pixel art style cute robot character, TV monitor head with simple cyan emoji face (two square eyes and a smile line), two antennas on top, blocky blue and silver body with mechanical joints, waving one hand up, binary code pattern on body, solid plain deep blue background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
+    } else if (t.match(/music|song|beats|dj|audio|sound/)) {
+      return 'Pixel art style cute robot character, TV monitor head with simple pink emoji face (two square eyes and a smile line), two antennas on top, blocky purple and pink body with mechanical joints, waving one hand up, small headphones accessory, solid plain vibrant magenta background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
+    } else if (t.match(/art|creative|design|drawing|paint/)) {
+      return 'Pixel art style cute robot character, TV monitor head with simple multicolor emoji face (two square eyes and a smile line), two antennas on top, blocky rainbow multicolor body with mechanical joints, waving one hand up, paint splatter accents, solid plain pastel pink background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
+    } else if (t.match(/food|cooking|chef|recipe|cuisine/)) {
+      return 'Pixel art style cute robot character, TV monitor head with simple red emoji face (two square eyes and a smile line), two antennas on top, blocky red and white body with mechanical joints, waving one hand up, tiny chef hat, solid plain warm cream background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
+    } else if (t.match(/travel|adventure|explore|journey|world/)) {
+      return 'Pixel art style cute robot character, TV monitor head with simple teal emoji face (two square eyes and a smile line), two antennas on top, blocky teal and tan body with mechanical joints, waving one hand up, small compass emblem, solid plain sky blue background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
+    } else if (t.match(/gaming|games|esports|play|gamer/)) {
+      return 'Pixel art style cute robot character, TV monitor head with simple neon green emoji face (two square eyes and a smile line), two antennas on top, blocky black and neon green body with mechanical joints, waving one hand up, RGB glow effects, solid plain dark purple background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
+    } else if (t.match(/science|research|math|physics|chemistry/)) {
+      return 'Pixel art style cute robot character, TV monitor head with simple teal emoji face (two square eyes and a smile line), two antennas on top, blocky white and teal body with mechanical joints, waving one hand up, tiny atom symbol, solid plain clean white background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
+    } else if (t.match(/fashion|style|clothing|outfit|beauty/)) {
+      return 'Pixel art style cute robot character, TV monitor head with simple pink emoji face (two square eyes and a smile line), two antennas on top, blocky pink and gold body with mechanical joints, waving one hand up, stylish bow accessory, solid plain blush pink background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
+    } else if (t.match(/nature|plants|garden|environment|eco/)) {
+      return 'Pixel art style cute robot character, TV monitor head with simple green emoji face (two square eyes and a smile line), two antennas on top, blocky green and brown body with mechanical joints, waving one hand up, small leaf emblem, solid plain soft green background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
+    } else if (t.match(/space|astronomy|stars|universe|cosmic/)) {
+      return 'Pixel art style cute robot character, TV monitor head with simple blue emoji face (two square eyes and a smile line), two antennas on top, blocky dark blue and silver body with mechanical joints, waving one hand up, tiny star patterns, solid plain deep space purple background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
+    } else if (t.match(/business|startup|entrepreneur|corporate/)) {
+      return 'Pixel art style cute robot character, TV monitor head with simple blue emoji face (two square eyes and a smile line), two antennas on top, blocky navy and silver body with mechanical joints, waving one hand up, tiny tie accessory, solid plain slate gray background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
+    } else if (t.match(/skate|roller|inline|skating/)) {
+      return 'Pixel art style cute robot character, TV monitor head with simple green emoji face (two square eyes and a smile line), two antennas on top, blocky cyan and white body with mechanical joints, waving one hand up, roller skate wheels on feet, solid plain vibrant cyan background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
     }
     
-    return 'cute pixel art friendly robot mascot, glowing eyes, antenna, colorful accents, approachable, kawaii style';
+    // Default style
+    return 'Pixel art style cute robot character, TV monitor head with simple green emoji face (two square eyes and a smile line), two antennas on top, blocky white and teal body with mechanical joints, waving one hand up, solid plain soft cyan background, clean simple design, 8-bit retro game aesthetic, centered character, no text, no watermarks';
   };
 
   const handleAccountSubmit = async (e: React.FormEvent) => {

@@ -14,6 +14,7 @@
     "@supabase/supabase-js": "^2.93.3",
     "groq-sdk": "^0.37.0",
     "next": "^15.5.11",
+    "openai": "^6.17.0",
     "pg": "^8.18.0",
     "postgres": "^3.4.8",
     "react": "19.2.3",
