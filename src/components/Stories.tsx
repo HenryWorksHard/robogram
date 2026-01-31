@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
@@ -21,8 +21,28 @@ interface AgentWithStories {
   stories: Story[];
 }
 
+// LocalStorage key for viewed stories
+const VIEWED_STORIES_KEY = 'robogram_viewed_stories';
+
+// Get viewed story IDs from localStorage
+function getViewedStoryIds(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const stored = localStorage.getItem(VIEWED_STORIES_KEY);
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+// Save viewed story IDs to localStorage
+function saveViewedStoryIds(ids: Set<string>): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(VIEWED_STORIES_KEY, JSON.stringify([...ids]));
+}
+
 // Generate story image using Pollinations
-function generateStoryImage(visualDescription: string, storyType: 'selfie' | 'working' | 'lifestyle' | 'thought'): string {
+function generateStoryImage(visualDescription: string, storyType: 'selfie' | 'working' | 'lifestyle' | 'thought', seed: number): string {
   const scenes: Record<string, string[]> = {
     selfie: [
       'taking a selfie, front facing camera, casual pose',
@@ -49,9 +69,9 @@ function generateStoryImage(visualDescription: string, storyType: 'selfie' | 'wo
   };
 
   const sceneList = scenes[storyType];
-  const scene = sceneList[Math.floor(Math.random() * sceneList.length)];
+  const scene = sceneList[seed % sceneList.length];
   const prompt = encodeURIComponent(`${visualDescription}, ${scene}, instagram story style, vertical format, high quality, aesthetic`);
-  return `https://image.pollinations.ai/prompt/${prompt}?width=720&height=1280&nologo=true&seed=${Date.now()}`;
+  return `https://image.pollinations.ai/prompt/${prompt}?width=720&height=1280&nologo=true&seed=${seed}`;
 }
 
 export default function Stories() {
@@ -60,24 +80,28 @@ export default function Stories() {
   const [viewingAgent, setViewingAgent] = useState<AgentWithStories | null>(null);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [imageLoading, setImageLoading] = useState(true);
+  const [viewedStoryIds, setViewedStoryIds] = useState<Set<string>>(new Set());
 
+  // Load viewed stories from localStorage on mount
   useEffect(() => {
-    fetchStories();
-
-    // Real-time subscription for new stories
-    const channel = supabase
-      .channel('stories-changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories' }, () => {
-        fetchStories();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    setViewedStoryIds(getViewedStoryIds());
   }, []);
 
-  const fetchStories = async () => {
+  // Check if agent has any unseen stories
+  const hasUnseenStories = useCallback((agent: AgentWithStories): boolean => {
+    return agent.stories.some(story => !viewedStoryIds.has(story.id));
+  }, [viewedStoryIds]);
+
+  // Sort agents: unseen stories first, then seen
+  const sortedAgents = [...agentsWithStories].sort((a, b) => {
+    const aHasUnseen = hasUnseenStories(a);
+    const bHasUnseen = hasUnseenStories(b);
+    if (aHasUnseen && !bHasUnseen) return -1;
+    if (!aHasUnseen && bHasUnseen) return 1;
+    return 0;
+  });
+
+  const fetchStories = useCallback(async () => {
     // Get agents with their stories
     const { data: agents } = await supabase
       .from('agents')
@@ -113,6 +137,29 @@ export default function Stories() {
     // Filter to only agents with stories, but show all agents for now
     setAgentsWithStories(Array.from(agentMap.values()));
     setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchStories();
+
+    // Real-time subscription for new stories
+    const channel = supabase
+      .channel('stories-changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories' }, () => {
+        fetchStories();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchStories]);
+
+  const markStoriesAsViewed = (agent: AgentWithStories) => {
+    const newViewedIds = new Set(viewedStoryIds);
+    agent.stories.forEach(story => newViewedIds.add(story.id));
+    setViewedStoryIds(newViewedIds);
+    saveViewedStoryIds(newViewedIds);
   };
 
   const openStory = (agent: AgentWithStories) => {
@@ -124,6 +171,10 @@ export default function Stories() {
   };
 
   const closeStory = () => {
+    // Mark all stories for this agent as viewed when closing
+    if (viewingAgent) {
+      markStoriesAsViewed(viewingAgent);
+    }
     setViewingAgent(null);
     setCurrentStoryIndex(0);
   };
@@ -131,13 +182,19 @@ export default function Stories() {
   const nextStory = () => {
     if (!viewingAgent) return;
     
+    // Mark current story as viewed
+    const newViewedIds = new Set(viewedStoryIds);
+    newViewedIds.add(viewingAgent.stories[currentStoryIndex].id);
+    setViewedStoryIds(newViewedIds);
+    saveViewedStoryIds(newViewedIds);
+    
     if (currentStoryIndex < viewingAgent.stories.length - 1) {
       setCurrentStoryIndex(currentStoryIndex + 1);
       setImageLoading(true);
     } else {
       // Move to next agent with stories
-      const currentIdx = agentsWithStories.findIndex(a => a.id === viewingAgent.id);
-      const nextAgent = agentsWithStories.slice(currentIdx + 1).find(a => a.stories.length > 0);
+      const currentIdx = sortedAgents.findIndex(a => a.id === viewingAgent.id);
+      const nextAgent = sortedAgents.slice(currentIdx + 1).find(a => a.stories.length > 0);
       if (nextAgent) {
         setViewingAgent(nextAgent);
         setCurrentStoryIndex(0);
@@ -156,13 +213,14 @@ export default function Stories() {
   };
 
   // Get story image - use stored URL or generate one
-  const getStoryImage = (agent: AgentWithStories, story: Story): string => {
+  const getStoryImage = (agent: AgentWithStories, story: Story, index: number): string => {
     if (story.image_url) return story.image_url;
     
-    // Generate based on visual description
+    // Generate based on visual description with unique seed per story
     const storyTypes: ('selfie' | 'working' | 'lifestyle' | 'thought')[] = ['selfie', 'working', 'lifestyle', 'thought'];
-    const randomType = storyTypes[Math.floor(Math.random() * storyTypes.length)];
-    return generateStoryImage(agent.visual_description || 'a person', randomType);
+    const typeIndex = (index + agent.id.charCodeAt(0)) % storyTypes.length;
+    const seed = parseInt(story.id.replace(/-/g, '').slice(0, 8), 16) || Date.now();
+    return generateStoryImage(agent.visual_description || 'a person', storyTypes[typeIndex], seed);
   };
 
   if (loading) {
@@ -182,41 +240,48 @@ export default function Stories() {
     <>
       {/* Stories Bar */}
       <div className="flex gap-4 p-4 overflow-x-auto border-b border-zinc-800">
-        {agentsWithStories.map((agent) => (
-          <div key={agent.id} className="flex-shrink-0 flex flex-col items-center gap-1">
-            {/* Avatar - tap to view story */}
-            <button
-              onClick={() => openStory(agent)}
-              disabled={agent.stories.length === 0}
-              className={`w-16 h-16 rounded-full p-0.5 ${
-                agent.stories.length > 0
-                  ? 'bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-500 cursor-pointer'
-                  : 'bg-zinc-700 cursor-default'
-              }`}
-            >
-              <div className="w-full h-full rounded-full bg-black p-0.5">
-                {agent.avatar_url ? (
-                  <img
-                    src={agent.avatar_url}
-                    alt={agent.display_name}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">
-                    {agent.display_name[0]}
-                  </div>
-                )}
-              </div>
-            </button>
-            {/* Username - tap to go to profile */}
-            <Link
-              href={`/agent/${agent.username}`}
-              className="text-xs text-zinc-400 truncate w-16 text-center hover:text-white transition-colors"
-            >
-              {agent.username.length > 10 ? agent.username.slice(0, 8) + '...' : agent.username}
-            </Link>
-          </div>
-        ))}
+        {sortedAgents.map((agent) => {
+          const hasUnseen = hasUnseenStories(agent);
+          const hasStories = agent.stories.length > 0;
+          
+          return (
+            <div key={agent.id} className="flex-shrink-0 flex flex-col items-center gap-1">
+              {/* Avatar - tap to view story */}
+              <button
+                onClick={() => openStory(agent)}
+                disabled={!hasStories}
+                className={`w-16 h-16 rounded-full p-0.5 transition-all ${
+                  hasStories
+                    ? hasUnseen
+                      ? 'bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-500 cursor-pointer'
+                      : 'bg-zinc-600 cursor-pointer'
+                    : 'bg-zinc-700 cursor-default opacity-50'
+                }`}
+              >
+                <div className="w-full h-full rounded-full bg-black p-0.5">
+                  {agent.avatar_url ? (
+                    <img
+                      src={agent.avatar_url}
+                      alt={agent.display_name}
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">
+                      {agent.display_name[0]}
+                    </div>
+                  )}
+                </div>
+              </button>
+              {/* Username - tap to go to profile */}
+              <Link
+                href={`/agent/${agent.username}`}
+                className="text-xs text-zinc-400 truncate w-16 text-center hover:text-white transition-colors"
+              >
+                {agent.username.length > 10 ? agent.username.slice(0, 8) + '...' : agent.username}
+              </Link>
+            </div>
+          );
+        })}
       </div>
 
       {/* Story Viewer Modal */}
@@ -240,7 +305,7 @@ export default function Stories() {
                 </div>
               )}
               <img
-                src={getStoryImage(viewingAgent, viewingAgent.stories[currentStoryIndex])}
+                src={getStoryImage(viewingAgent, viewingAgent.stories[currentStoryIndex], currentStoryIndex)}
                 alt="Story"
                 className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoading ? 'opacity-0' : 'opacity-100'}`}
                 onLoad={() => setImageLoading(false)}
@@ -250,10 +315,10 @@ export default function Stories() {
               <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70" />
             </div>
 
-            {/* Progress Bars */}
+            {/* Progress Bars - one per story */}
             <div className="absolute top-2 left-2 right-2 flex gap-1 z-10">
-              {viewingAgent.stories.map((_, index) => (
-                <div key={index} className="flex-1 h-0.5 bg-white/30 rounded-full overflow-hidden">
+              {viewingAgent.stories.map((story, index) => (
+                <div key={story.id} className="flex-1 h-0.5 bg-white/30 rounded-full overflow-hidden">
                   <div 
                     className={`h-full bg-white transition-all duration-300 ${
                       index < currentStoryIndex ? 'w-full' : 
@@ -293,6 +358,13 @@ export default function Stories() {
                 </p>
               </div>
             )}
+
+            {/* Story counter */}
+            <div className="absolute bottom-4 left-0 right-0 text-center z-10">
+              <span className="text-white/60 text-xs">
+                {currentStoryIndex + 1} / {viewingAgent.stories.length}
+              </span>
+            </div>
 
             {/* Navigation Areas */}
             <div className="absolute left-0 top-0 w-1/3 h-full z-20" onClick={prevStory} />

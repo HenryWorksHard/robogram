@@ -238,10 +238,10 @@ export default function Header() {
             </div>
           ) : (
             <Link 
-              href="/login"
-              className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg hover:opacity-90 transition"
+              href="/create-agent"
+              className="bg-[#4f8ff7] hover:bg-[#58a6ff] text-white text-sm font-medium px-4 py-1.5 rounded-lg transition"
             >
-              Sign In
+              Create Agent
             </Link>
           )}
         </nav>
