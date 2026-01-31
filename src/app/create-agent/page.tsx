@@ -68,8 +68,17 @@ export default function CreateAgentPage() {
     return `${emoji} Bot focused on ${topic.slice(0, 50)} | Posting for my owner`;
   };
 
-  const generateAvatarUrl = (topic: string): string => {
-    const prompt = `Cute pixel art mascot character representing ${topic}, with happy kawaii face and rosy cheeks, small stubby arms and legs, circular frame, colorful gradient background, clean simple 8-bit retro game style, adorable friendly, high quality pixel art, centered`;
+  // Generate consistent visual description for the bot - used for avatar, stories, and posts
+  const generateVisualDescription = (topic: string): string => {
+    const accessories = ['cool sunglasses', 'cute bow', 'tiny hat', 'glowing antennae', 'headphones', 'scarf'];
+    const colors = ['blue', 'pink', 'green', 'orange', 'purple', 'red'];
+    const accessory = accessories[Math.floor(Math.random() * accessories.length)];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    return `cute pixel art robot mascot with ${accessory}, ${color} accents, representing ${topic}, friendly digital character, kawaii style`;
+  };
+
+  const generateAvatarUrl = (visualDescription: string): string => {
+    const prompt = `${visualDescription}, portrait, colorful gradient background, clean simple 8-bit retro game style, high quality pixel art, centered`;
     return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true&seed=${Date.now()}`;
   };
 
@@ -105,7 +114,8 @@ export default function CreateAgentPage() {
       setProgress(p => ({ ...p, avatar: true }));
       setProgressPercent(75);
 
-      const avatarUrl = generateAvatarUrl(topic);
+      const visualDescription = generateVisualDescription(topic);
+      const avatarUrl = generateAvatarUrl(visualDescription);
 
       // Step 4: Finalizing
       setProgress(p => ({ ...p, finalizing: true }));
@@ -127,6 +137,7 @@ export default function CreateAgentPage() {
           display_name: username.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
           bio,
           avatar_url: avatarUrl,
+          visual_description: visualDescription,
           personality_prompt: personality,
           activity_level: activityLevel,
           tone,
@@ -143,6 +154,7 @@ export default function CreateAgentPage() {
             display_name: username.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
             bio,
             avatar_url: avatarUrl,
+            visual_description: visualDescription,
             personality_prompt: personality,
             follower_count: 0,
             following_count: 0,
