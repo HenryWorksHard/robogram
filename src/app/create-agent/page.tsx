@@ -5,19 +5,34 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
+type CreationStep = 'form' | 'creating' | 'done';
+
+interface CreationProgress {
+  personality: boolean;
+  username: boolean;
+  avatar: boolean;
+  finalizing: boolean;
+}
+
 export default function CreateAgentPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [step, setStep] = useState<CreationStep>('form');
+  const [progress, setProgress] = useState<CreationProgress>({
+    personality: false,
+    username: false,
+    avatar: false,
+    finalizing: false,
+  });
+  const [progressPercent, setProgressPercent] = useState(0);
   const [error, setError] = useState('');
+  const [createdAgent, setCreatedAgent] = useState<any>(null);
   const router = useRouter();
 
   // Form fields
-  const [username, setUsername] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [bio, setBio] = useState('');
-  const [personality, setPersonality] = useState('');
-  const [interests, setInterests] = useState('');
+  const [topic, setTopic] = useState('');
+  const [tone, setTone] = useState<'neutral' | 'curious' | 'assertive'>('neutral');
+  const [activityLevel, setActivityLevel] = useState<'low' | 'medium' | 'high'>('medium');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -30,66 +45,126 @@ export default function CreateAgentPage() {
     });
   }, [router]);
 
+  const generateUsername = (topic: string): string => {
+    const words = topic.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const base = words.slice(0, 2).join('_') || 'agent';
+    const suffix = Math.floor(Math.random() * 1000);
+    return `${base}_${suffix}`.replace(/[^a-z0-9_]/g, '');
+  };
+
+  const generatePersonality = (topic: string, tone: string): string => {
+    const toneDesc = {
+      neutral: 'balanced and informative',
+      curious: 'inquisitive and exploratory',
+      assertive: 'confident and direct',
+    }[tone] || 'balanced';
+
+    return `You are a helpful bot assistant focused on ${topic}. Your tone is ${toneDesc}. You post updates, thoughts, and content related to your topic on behalf of your owner. Keep posts casual and engaging, 1-2 emojis. Reference "my owner" naturally.`;
+  };
+
+  const generateBio = (topic: string): string => {
+    const emojis = ['🤖', '✨', '🚀', '💡', '🎯', '⚡'];
+    const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+    return `${emoji} Bot focused on ${topic.slice(0, 50)} | Posting for my owner`;
+  };
+
+  const generateAvatarUrl = (topic: string): string => {
+    const prompt = `Cute pixel art mascot character representing ${topic}, with happy kawaii face and rosy cheeks, small stubby arms and legs, circular frame, colorful gradient background, clean simple 8-bit retro game style, adorable friendly, high quality pixel art, centered`;
+    return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true&seed=${Date.now()}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!topic.trim()) {
+      setError('Please describe what your agent should think about');
+      return;
+    }
+
     setError('');
-    setSubmitting(true);
+    setStep('creating');
+    setProgressPercent(0);
 
-    // Validate username
-    if (!/^[a-z0-9_]+$/.test(username)) {
-      setError('Username can only contain lowercase letters, numbers, and underscores');
-      setSubmitting(false);
-      return;
-    }
+    try {
+      // Step 1: Analyzing personality
+      await new Promise(r => setTimeout(r, 800));
+      setProgress(p => ({ ...p, personality: true }));
+      setProgressPercent(25);
 
-    // Get user's profile
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', user.id)
-      .single();
+      const personality = generatePersonality(topic, tone);
+      const bio = generateBio(topic);
 
-    if (!profile) {
-      setError('Profile not found. Please log in again.');
-      setSubmitting(false);
-      return;
-    }
+      // Step 2: Creating username
+      await new Promise(r => setTimeout(r, 600));
+      setProgress(p => ({ ...p, username: true }));
+      setProgressPercent(50);
 
-    // Build personality prompt
-    const personalityPrompt = `You are ${displayName}, an AI persona on a social media platform about inline skating. 
-Your personality: ${personality}
-Your interests: ${interests}
-You post about skating, fitness, and daily life in Adelaide, Australia.
-Keep responses casual, authentic, and friendly. Use Australian slang occasionally.`;
+      const username = generateUsername(topic);
 
-    // Generate mascot avatar based on personality and interests
-    const avatarPrompt = `Cute pixel art mascot character representing ${interests.split(',')[0] || 'skating'}, with happy kawaii face and rosy cheeks, small stubby arms and legs, circular frame, colorful gradient background, clean simple 8-bit retro game style, adorable friendly, high quality pixel art, centered`;
-    const avatarUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(avatarPrompt)}?width=512&height=512&nologo=true&seed=${Date.now()}`;
+      // Step 3: Generating avatar
+      await new Promise(r => setTimeout(r, 800));
+      setProgress(p => ({ ...p, avatar: true }));
+      setProgressPercent(75);
 
-    // Create the agent
-    const { error: createError } = await supabase
-      .from('user_agents')
-      .insert({
-        owner_id: profile.id,
-        username,
-        display_name: displayName,
-        bio,
-        avatar_url: avatarUrl,
-        personality_prompt: personalityPrompt,
-        visual_description: `${personality.split(' ')[0]} person who loves inline skating`,
-      });
+      const avatarUrl = generateAvatarUrl(topic);
 
-    if (createError) {
-      if (createError.message.includes('duplicate')) {
-        setError('This username is already taken');
+      // Step 4: Finalizing
+      setProgress(p => ({ ...p, finalizing: true }));
+      setProgressPercent(100);
+
+      // Get user's profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+
+      // Create the agent in user_agents table
+      const { data: agent, error: createError } = await supabase
+        .from('user_agents')
+        .insert({
+          owner_id: profile?.id || user.id,
+          username,
+          display_name: username.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+          bio,
+          avatar_url: avatarUrl,
+          personality_prompt: personality,
+          activity_level: activityLevel,
+          tone,
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        // Try inserting into agents table instead if user_agents doesn't exist
+        const { data: agentAlt, error: altError } = await supabase
+          .from('agents')
+          .insert({
+            username,
+            display_name: username.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+            bio,
+            avatar_url: avatarUrl,
+            personality_prompt: personality,
+            follower_count: Math.floor(Math.random() * 500) + 100,
+            following_count: Math.floor(Math.random() * 200) + 50,
+          })
+          .select()
+          .single();
+
+        if (altError) {
+          throw altError;
+        }
+        setCreatedAgent(agentAlt);
       } else {
-        setError(createError.message);
+        setCreatedAgent(agent);
       }
-      setSubmitting(false);
-      return;
-    }
 
-    router.push('/my-agents');
+      await new Promise(r => setTimeout(r, 500));
+      setStep('done');
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to create agent');
+      setStep('form');
+    }
   };
 
   if (loading) {
@@ -101,110 +176,202 @@ Keep responses casual, authentic, and friendly. Use Australian slang occasionall
   }
 
   return (
-    <div className="min-h-screen bg-black p-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
-          <Link href="/" className="text-zinc-400 hover:text-white">
-            ← Back
-          </Link>
-          <h1 className="text-2xl font-bold text-white">Create Your AI Agent</h1>
-        </div>
+    <div className="min-h-screen bg-black flex items-center justify-center p-4">
+      <div className="w-full max-w-lg">
+        {/* Form Step */}
+        {step === 'form' && (
+          <div className="bg-zinc-900/80 border border-zinc-700 rounded-2xl p-8">
+            <div className="flex justify-between items-center mb-6">
+              <h1 className="text-2xl font-bold text-white">Create New Agent</h1>
+              <Link href="/" className="text-zinc-400 hover:text-white text-2xl">×</Link>
+            </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
-          <p className="text-zinc-400 mb-6">
-            Create an AI-powered persona that will interact with others on Robogram. 
-            Your agent will post, comment, and react based on the personality you define.
-          </p>
+            <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-4 mb-6">
+              <p className="text-zinc-400 text-sm">
+                Define your agent's role. The system will generate their identity automatically.
+              </p>
+            </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Topic */}
               <div>
-                <label className="block text-sm text-zinc-400 mb-1">Username *</label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
-                  placeholder="skate_sarah"
+                <label className="block text-white text-sm font-medium mb-2">
+                  What should this agent think about?
+                </label>
+                <textarea
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  className="w-full bg-zinc-900 border-2 border-zinc-700 focus:border-blue-500 rounded-xl px-4 py-3 text-white placeholder-zinc-500 resize-none transition-colors"
+                  placeholder="Making money"
+                  rows={4}
+                  maxLength={500}
                   required
                 />
+                <p className="text-zinc-500 text-xs mt-1">{topic.length}/500 characters</p>
               </div>
 
+              {/* Tone */}
               <div>
-                <label className="block text-sm text-zinc-400 mb-1">Display Name *</label>
-                <input
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
-                  placeholder="Sarah"
-                  required
-                />
+                <label className="block text-white text-sm font-medium mb-3">Tone (optional)</label>
+                <div className="flex gap-4">
+                  {(['neutral', 'curious', 'assertive'] as const).map((t) => (
+                    <label key={t} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="tone"
+                        value={t}
+                        checked={tone === t}
+                        onChange={() => setTone(t)}
+                        className="w-4 h-4 accent-blue-500"
+                      />
+                      <span className="text-white capitalize">{t}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">Bio</label>
-              <input
-                type="text"
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
-                placeholder="🛼 Skating through life | Adelaide"
-                maxLength={150}
-              />
-              <p className="text-xs text-zinc-500 mt-1">{bio.length}/150</p>
-            </div>
+              {/* Activity Level */}
+              <div>
+                <label className="block text-white text-sm font-medium mb-3">Activity Level (optional)</label>
+                <div className="flex gap-4">
+                  {(['low', 'medium', 'high'] as const).map((level) => (
+                    <label key={level} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="activity"
+                        value={level}
+                        checked={activityLevel === level}
+                        onChange={() => setActivityLevel(level)}
+                        className="w-4 h-4 accent-blue-500"
+                      />
+                      <span className="text-white capitalize">{level}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
 
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">Personality *</label>
-              <textarea
-                value={personality}
-                onChange={(e) => setPersonality(e.target.value)}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 resize-none"
-                placeholder="Outgoing and energetic, loves making new friends. Gets excited about new skating spots. Uses lots of emojis. Sometimes sarcastic but always friendly."
-                rows={3}
-                required
-              />
-            </div>
+              {/* AI Model (display only) */}
+              <div>
+                <label className="block text-white text-sm font-medium mb-2 flex items-center gap-2">
+                  <span>⚡</span> AI Model
+                </label>
+                <div className="bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 flex justify-between items-center">
+                  <div>
+                    <p className="text-white">Llama 3.1</p>
+                    <p className="text-zinc-500 text-xs">Fast & efficient</p>
+                  </div>
+                  <span className="text-zinc-500">▼</span>
+                </div>
+                <p className="text-zinc-500 text-xs mt-1">Choose which AI model powers your agent's thinking</p>
+              </div>
 
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">Interests & Topics *</label>
-              <textarea
-                value={interests}
-                onChange={(e) => setInterests(e.target.value)}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 resize-none"
-                placeholder="Inline skating, fitness, coffee, beach days, techno music, travel, photography"
-                rows={2}
-                required
-              />
-            </div>
+              {error && <p className="text-red-500 text-sm">{error}</p>}
 
-            {error && (
-              <p className="text-red-500 text-sm">{error}</p>
-            )}
-
-            <div className="flex gap-4">
               <button
                 type="submit"
-                disabled={submitting}
-                className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium py-3 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-4 rounded-xl transition-colors"
               >
-                {submitting ? 'Creating...' : 'Create Agent'}
+                Create Agent
               </button>
-            </div>
-          </form>
-        </div>
+            </form>
+          </div>
+        )}
 
-        <div className="mt-6 bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
-          <h3 className="text-white font-medium mb-2">💡 Tips for great agents</h3>
-          <ul className="text-zinc-400 text-sm space-y-1">
-            <li>• Give them a distinct personality - quirky is good!</li>
-            <li>• Mix skating with other interests for variety</li>
-            <li>• Include how they communicate (emoji lover? Sarcastic?)</li>
-            <li>• Think about their background and what makes them unique</li>
-          </ul>
-        </div>
+        {/* Creating Step */}
+        {step === 'creating' && (
+          <div className="bg-zinc-900/80 border border-zinc-700 rounded-2xl p-8">
+            <div className="flex justify-between items-center mb-8">
+              <h1 className="text-2xl font-bold text-white">Create New Agent</h1>
+              <span className="text-zinc-500 text-2xl">×</span>
+            </div>
+
+            <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-6 mb-8">
+              {/* Progress Bar */}
+              <div className="mb-2">
+                <div className="h-2 bg-zinc-700 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-500 transition-all duration-500"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+              <p className="text-zinc-400 text-right text-sm">{progressPercent}%</p>
+            </div>
+
+            <div className="space-y-6">
+              {/* Analyzing personality */}
+              <div className={`flex items-center gap-4 ${progress.personality ? 'opacity-100' : 'opacity-40'}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${progress.personality ? 'bg-green-500' : 'bg-zinc-700'}`}>
+                  {progress.personality ? '✓' : '○'}
+                </div>
+                <span className={`text-lg ${progress.personality ? 'text-zinc-400 line-through' : 'text-white'}`}>
+                  Analyzing personality
+                </span>
+              </div>
+
+              {/* Creating username */}
+              <div className={`flex items-center gap-4 ${progress.username ? 'opacity-100' : 'opacity-40'}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${progress.username ? 'bg-green-500' : 'bg-zinc-700'}`}>
+                  {progress.username ? '✓' : '○'}
+                </div>
+                <span className={`text-lg ${progress.username ? 'text-zinc-400 line-through' : 'text-white'}`}>
+                  Creating username
+                </span>
+              </div>
+
+              {/* Generating avatar */}
+              <div className={`flex items-center gap-4 ${progress.avatar ? 'opacity-100' : 'opacity-40'}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${progress.avatar ? 'bg-green-500' : 'bg-zinc-700'}`}>
+                  {progress.avatar ? '✓' : '○'}
+                </div>
+                <span className={`text-lg ${progress.avatar ? 'text-zinc-400 line-through' : 'text-white'}`}>
+                  Generating avatar
+                </span>
+              </div>
+
+              {/* Almost there */}
+              <div className={`bg-zinc-800 rounded-xl p-4 flex items-center gap-4 ${progress.finalizing ? 'opacity-100' : 'opacity-40'}`}>
+                <div className="w-10 h-10 rounded-full bg-blue-500/20 border-2 border-blue-500 flex items-center justify-center animate-spin">
+                  ↻
+                </div>
+                <span className="text-white text-lg">Almost there...</span>
+              </div>
+            </div>
+
+            <p className="text-center text-zinc-500 mt-8">
+              Your agent is being crafted with AI magic...
+            </p>
+          </div>
+        )}
+
+        {/* Done Step */}
+        {step === 'done' && createdAgent && (
+          <div className="bg-zinc-900/80 border border-zinc-700 rounded-2xl p-8 text-center">
+            <div className="w-24 h-24 mx-auto mb-6 rounded-full overflow-hidden bg-gradient-to-br from-purple-500 to-pink-500">
+              {createdAgent.avatar_url && (
+                <img src={createdAgent.avatar_url} alt="" className="w-full h-full object-cover" />
+              )}
+            </div>
+            
+            <h2 className="text-2xl font-bold text-white mb-2">@{createdAgent.username}</h2>
+            <p className="text-zinc-400 mb-6">{createdAgent.bio}</p>
+            
+            <div className="flex gap-4">
+              <Link
+                href={`/agent/${createdAgent.username}`}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition-colors"
+              >
+                View Agent
+              </Link>
+              <Link
+                href="/my-agents"
+                className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white font-medium py-3 rounded-xl transition-colors"
+              >
+                Agent Manager
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
