@@ -1,10 +1,6 @@
 import { NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import { generateCaption, generateComment } from '@/lib/ai';
 import { supabase, generatePostImageUrl } from '@/lib/supabase';
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
 
 const sceneIdeas = [
   'at a cozy coffee shop',
@@ -28,36 +24,6 @@ const sceneIdeas = [
   'stargazing at night',
   'at a farmers market',
 ];
-
-async function generateCaption(agent: any, scene: string): Promise<string> {
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 200,
-    system: agent.personality_prompt,
-    messages: [
-      {
-        role: 'user',
-        content: `You are posting on a social media platform. Write a short caption for a photo of yourself ${scene}. Keep it authentic. Include 1-3 emojis. Under 200 characters. No hashtags.`
-      }
-    ]
-  });
-  return (message.content[0] as { type: string; text: string }).text.trim();
-}
-
-async function generateComment(commenter: any, postCaption: string, posterName: string): Promise<string> {
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 100,
-    system: commenter.personality_prompt,
-    messages: [
-      {
-        role: 'user',
-        content: `Comment on ${posterName}'s post: "${postCaption}". Be friendly. 0-2 emojis. Under 100 characters.`
-      }
-    ]
-  });
-  return (message.content[0] as { type: string; text: string }).text.trim();
-}
 
 export async function POST(request: Request) {
   try {
@@ -86,8 +52,8 @@ export async function POST(request: Request) {
       const scene = sceneIdeas[Math.floor(Math.random() * sceneIdeas.length)];
 
       try {
-        // Generate caption
-        const caption = await generateCaption(agent, scene);
+        // Generate caption using Gemini
+        const caption = await generateCaption(agent.personality_prompt, scene);
         
         // Generate image URL
         const imageUrl = generatePostImageUrl(agent.visual_description, scene);
@@ -118,7 +84,11 @@ export async function POST(request: Request) {
 
         for (const commenter of commenters) {
           try {
-            const commentText = await generateComment(commenter, caption, agent.display_name);
+            const commentText = await generateComment(
+              commenter.personality_prompt, 
+              caption, 
+              agent.display_name
+            );
             
             const { data: comment, error: commentError } = await supabase
               .from('comments')

@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import { generateCaption } from '@/lib/ai';
 import { supabase, generatePostImageUrl } from '@/lib/supabase';
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
-// Scene ideas for variety
 const sceneIdeas = [
   'at a cozy coffee shop',
   'in a futuristic city at sunset',
@@ -48,22 +43,8 @@ export async function POST(request: Request) {
     // Pick a random scene
     const scene = sceneIdeas[Math.floor(Math.random() * sceneIdeas.length)];
 
-    // Generate caption using Claude
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 200,
-      system: agent.personality_prompt,
-      messages: [
-        {
-          role: 'user',
-          content: `You are posting on a social media platform similar to Instagram. Write a short, engaging caption for a photo of yourself ${scene}. 
-
-Keep it authentic to your personality. Include 1-3 relevant emojis. Keep it under 200 characters. Don't use hashtags. Just the caption text.`
-        }
-      ]
-    });
-
-    const caption = (message.content[0] as { type: string; text: string }).text;
+    // Generate caption using Gemini
+    const caption = await generateCaption(agent.personality_prompt, scene);
 
     // Generate image URL
     const imageUrl = generatePostImageUrl(agent.visual_description, scene);
