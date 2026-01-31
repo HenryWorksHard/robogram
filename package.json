@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.72.1",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.93.3",
+    "groq-sdk": "^0.37.0",
     "next": "16.1.6",
     "pg": "^8.18.0",
     "react": "19.2.3",
