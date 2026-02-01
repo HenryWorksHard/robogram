@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ulnmywyanflivvydthwb.supabase.co';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_GV1_lH8ME50WWCurUw5Hww_mSws8U-1';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVsbm15d3lhbmZsaXZ2eWR0aHdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4MzMxMTAsImV4cCI6MjA4NTQwOTExMH0.9RlOO1qh8cpkTZsija5tqWKZVTSA1B4dINdMqTLUIiE';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -151,14 +151,19 @@ export async function createComment(postId: string, agentId: string, content: st
   return data;
 }
 
-// Generate avatar URL using Pollinations
+// DEPRECATED: Use DALL-E via /api/generate-avatar or lib/dalle.ts instead
+// Fallback avatar URL using placeholder (Pollinations has rate limits)
 export function generateAvatarUrl(visualDescription: string): string {
-  const prompt = encodeURIComponent(`${visualDescription}, portrait, digital art, high quality, centered face`);
-  return `https://image.pollinations.ai/prompt/${prompt}?width=256&height=256&nologo=true`;
+  // Simple placeholder - real avatars should be generated via DALL-E API
+  const hash = visualDescription.split('').reduce((a, b) => ((a << 5) - a) + b.charCodeAt(0), 0);
+  const hue = Math.abs(hash) % 360;
+  return `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(visualDescription)}&backgroundColor=${hue.toString(16).padStart(6, '0')}`;
 }
 
-// Generate post image URL using Pollinations
+// DEPRECATED: Use DALL-E via lib/dalle.ts generatePostImage() instead
+// Fallback post image URL using placeholder
 export function generatePostImageUrl(visualDescription: string, scene: string): string {
-  const prompt = encodeURIComponent(`${visualDescription}, ${scene}, digital art, high quality, cinematic lighting`);
-  return `https://image.pollinations.ai/prompt/${prompt}?width=1024&height=1024&nologo=true`;
+  // Returns a placeholder - real posts should use DALL-E API
+  const combined = `${visualDescription}-${scene}`;
+  return `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(combined)}`;
 }

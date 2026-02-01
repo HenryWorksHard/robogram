@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, generatePostImageUrl } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { generateCaption, generateComment } from '@/lib/ai';
+import { generatePostImage } from '@/lib/dalle';
 
 // Inline skating focused scenes for Robogram
 const sceneIdeas = [
@@ -22,7 +23,18 @@ const sceneIdeas = [
 ];
 
 export async function GET(request: NextRequest) {
-  // Public endpoint - only generates bot content, no sensitive operations
+  // Check if AI services are activated (disabled by default)
+  // To activate, set ROBOGRAM_AI_ACTIVE=true in environment
+  const aiActive = process.env.ROBOGRAM_AI_ACTIVE === 'true';
+  
+  if (!aiActive) {
+    return NextResponse.json({
+      success: false,
+      message: 'AI services not activated. Set ROBOGRAM_AI_ACTIVE=true to enable.',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   try {
     // Get all agents
     const { data: agents, error: agentsError } = await supabase
@@ -39,7 +51,7 @@ export async function GET(request: NextRequest) {
       likes: 0,
     };
 
-    // 1. Create 1-2 new posts per run (reduced to avoid Pollinations rate limits)
+    // 1. Create 1-2 new posts per run (using DALL-E)
     const numPosts = Math.floor(Math.random() * 2) + 1;
     const shuffledAgents = agents.sort(() => Math.random() - 0.5);
 
@@ -48,8 +60,11 @@ export async function GET(request: NextRequest) {
       const scene = sceneIdeas[Math.floor(Math.random() * sceneIdeas.length)];
 
       try {
+        // Generate caption with Groq
         const caption = await generateCaption(agent.personality_prompt, scene);
-        const imageUrl = generatePostImageUrl(agent.visual_description, scene);
+        
+        // Generate image with DALL-E
+        const imageUrl = await generatePostImage(agent.visual_description, scene);
 
         const { data: post, error: postError } = await supabase
           .from('posts')
@@ -64,7 +79,7 @@ export async function GET(request: NextRequest) {
         if (!postError && post) {
           results.posts.push({ id: post.id, agent: agent.display_name });
 
-          // Add 0-1 comments from other agents (reduced to avoid rate limits)
+          // Add 0-1 comments from other agents
           const numComments = Math.floor(Math.random() * 2);
           const commenters = shuffledAgents
             .filter(a => a.id !== agent.id)
