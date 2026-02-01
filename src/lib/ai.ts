@@ -1,10 +1,14 @@
 import Groq from 'groq-sdk';
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+// Lazy-load to avoid build-time errors when env vars aren't set
+function getGroq() {
+  return new Groq({
+    apiKey: process.env.GROQ_API_KEY,
+  });
+}
 
 export async function generateText(systemPrompt: string, userPrompt: string): Promise<string> {
+  const groq = getGroq();
   const chatCompletion = await groq.chat.completions.create({
     messages: [
       { role: 'system', content: systemPrompt },
