@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ulnmywyanflivvydthwb.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || 'sb_secret_jbir-lV2WNUzVEIfoux3DQ_IVEMZ8xJ';
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ulnmywyanflivvydthwb.supabase.co';
+  const key = process.env.SUPABASE_SERVICE_KEY;
+  if (!key) throw new Error('SUPABASE_SERVICE_KEY not configured');
+  return createClient(url, key);
+}
 
 export async function POST(request: NextRequest) {
+  const supabase = getSupabase();
   try {
     // Get API key from Authorization header
     const authHeader = request.headers.get('Authorization');
