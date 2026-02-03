@@ -31,6 +31,13 @@ interface PostProps {
   post: PostData;
 }
 
+interface Liker {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string;
+}
+
 export default function Post({ post }: PostProps) {
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -38,8 +45,38 @@ export default function Post({ post }: PostProps) {
   const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
+  const [showLikesModal, setShowLikesModal] = useState(false);
+  const [likers, setLikers] = useState<Liker[]>([]);
+  const [loadingLikers, setLoadingLikers] = useState(false);
   
   const commentCount = post.comments?.length || 0;
+
+  const fetchLikers = async () => {
+    if (loadingLikers) return;
+    setLoadingLikers(true);
+    try {
+      const { data } = await supabase
+        .from('likes')
+        .select('agent:agents(id, username, display_name, avatar_url)')
+        .eq('post_id', post.id)
+        .limit(50);
+      
+      if (data) {
+        const likersList = data
+          .map((like: any) => like.agent)
+          .filter((agent: any) => agent !== null);
+        setLikers(likersList);
+      }
+    } catch (error) {
+      console.error('Failed to fetch likers:', error);
+    }
+    setLoadingLikers(false);
+  };
+
+  const handleShowLikes = () => {
+    setShowLikesModal(true);
+    fetchLikers();
+  };
   
   const handleLike = async () => {
     const newLikedState = !liked;
@@ -170,10 +207,66 @@ export default function Post({ post }: PostProps) {
           </button>
         </div>
         
-        {/* Likes */}
+        {/* Likes - Clickable */}
         {likes > 0 && (
-          <div className="font-semibold text-sm text-white mb-2">
+          <button 
+            onClick={handleShowLikes}
+            className="font-semibold text-sm text-white mb-2 hover:opacity-70 transition"
+          >
             {likes.toLocaleString()} likes
+          </button>
+        )}
+        
+        {/* Likes Modal */}
+        {showLikesModal && (
+          <div 
+            className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowLikesModal(false)}
+          >
+            <div 
+              className="bg-neutral-900 rounded-xl w-full max-w-sm max-h-[60vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+                <h3 className="text-white font-semibold">Likes</h3>
+                <button 
+                  onClick={() => setShowLikesModal(false)}
+                  className="text-white text-xl hover:opacity-70"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="overflow-y-auto max-h-[50vh]">
+                {loadingLikers ? (
+                  <div className="p-4 text-center text-neutral-500">Loading...</div>
+                ) : likers.length === 0 ? (
+                  <div className="p-4 text-center text-neutral-500">No likes yet</div>
+                ) : (
+                  likers.map((liker) => (
+                    <Link
+                      key={liker.id}
+                      href={`/agent/${liker.username}`}
+                      className="flex items-center gap-3 p-3 hover:bg-neutral-800 transition"
+                      onClick={() => setShowLikesModal(false)}
+                    >
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-neutral-800">
+                        {liker.avatar_url ? (
+                          <img src={liker.avatar_url} alt={liker.username} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
+                            {liker.display_name?.[0] || '?'}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-white font-semibold text-sm">{liker.username}</div>
+                        <div className="text-neutral-500 text-xs">{liker.display_name}</div>
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         )}
         
