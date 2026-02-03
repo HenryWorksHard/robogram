@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { saveImageToStorage } from '@/lib/storage';
 
 function getSupabase() {
@@ -9,8 +8,27 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+// GROQ helper for text generation
+async function generateText(prompt: string): Promise<string> {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 150,
+      temperature: 0.8,
+    }),
+  });
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content?.trim() || '';
+}
 
 // ============================================
 // AI KILL SWITCH - Set to false to pause AI features
@@ -35,20 +53,15 @@ const CONFIG = {
 // ============================================
 async function generatePost(agent: any, supabase: any): Promise<any | null> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    
-    // Generate activity
-    const activityResult = await model.generateContent([
-      { text: `You generate activity ideas for a social media bot.
+    // Generate activity using GROQ
+    const activityPrompt = `You generate activity ideas for a social media bot.
 
 Bot personality: "${agent.personality_prompt}"
 
 Generate ONE specific, visual activity this character would post about.
-Keep it SHORT (under 15 words). Just the activity.
+Keep it SHORT (under 15 words). Just the activity, nothing else.`;
 
-Activity:` }
-    ]);
-    const activity = activityResult.response.text().trim().replace(/^["']|["']$/g, '');
+    const activity = (await generateText(activityPrompt)).replace(/^["']|["']$/g, '');
 
     // Generate image with DALL-E
     const baseStyle = agent.visual_description || 'Pixel art cute character, chibi proportions';
@@ -83,17 +96,14 @@ Activity:` }
     const savedUrl = await saveImageToStorage(tempImageUrl, 'posts');
     if (savedUrl) finalImageUrl = savedUrl;
 
-    // Generate caption
-    const captionResult = await model.generateContent([
-      { text: `You are a social media bot: "${agent.personality_prompt}"
+    // Generate caption using GROQ
+    const captionPrompt = `You are a social media bot: "${agent.personality_prompt}"
 
 You posted a photo of yourself ${activity}.
 
-Write a SHORT caption (1-2 sentences). Include 1-2 emojis. No hashtags.
+Write a SHORT caption (1-2 sentences). Include 1-2 emojis. No hashtags. Just the caption, nothing else.`;
 
-Caption:` }
-    ]);
-    const caption = captionResult.response.text().trim().replace(/^["']|["']$/g, '');
+    const caption = (await generateText(captionPrompt)).replace(/^["']|["']$/g, '');
 
     // Save post
     const { data: post, error } = await supabase
@@ -121,18 +131,12 @@ Caption:` }
 // ============================================
 async function generateStory(agent: any, supabase: any): Promise<any | null> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    
-    const result = await model.generateContent([
-      { text: `You are a social media bot: "${agent.personality_prompt}"
+    const storyPrompt = `You are a social media bot: "${agent.personality_prompt}"
 
 Generate a SHORT story update (under 100 characters).
-Quick thought, mood, or moment. Include 1-2 emojis.
-
-Story:` }
-    ]);
+Quick thought, mood, or moment. Include 1-2 emojis. Just the story text, nothing else.`;
     
-    const text = result.response.text().trim().replace(/^["']|["']$/g, '');
+    const text = (await generateText(storyPrompt)).replace(/^["']|["']$/g, '');
 
     const gradients = [
       'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -171,17 +175,13 @@ Story:` }
 // ============================================
 async function generateComment(commenter: any, postCaption: string): Promise<string> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    const result = await model.generateContent([
-      { text: `You are: "${commenter.personality_prompt}"
+    const commentPrompt = `You are: "${commenter.personality_prompt}"
 
 Someone posted: "${postCaption}"
 
-Write a SHORT comment (under 50 chars). Natural, casual. Maybe an emoji.
+Write a SHORT comment (under 50 chars). Natural, casual. Maybe an emoji. Just the comment, nothing else.`;
 
-Comment:` }
-    ]);
-    return result.response.text().trim().replace(/^["']|["']$/g, '');
+    return (await generateText(commentPrompt)).replace(/^["']|["']$/g, '');
   } catch {
     const fallbacks = ['🔥', 'love this!', '💯', 'vibes ✨', 'so good!', '👏👏'];
     return fallbacks[Math.floor(Math.random() * fallbacks.length)];
