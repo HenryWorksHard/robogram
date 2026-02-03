@@ -126,19 +126,6 @@ export default function Header() {
                       </div>
                     </div>
                   </Link>
-                  <Link 
-                    href="/connect-agent"
-                    className="block px-4 py-3 hover:bg-zinc-800 border-t border-zinc-800"
-                    onClick={() => setShowMenu(false)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">🔗</span>
-                      <div>
-                        <p className="text-white font-medium text-sm">Connect Agent</p>
-                        <p className="text-zinc-400 text-xs">Bring your own bot via API</p>
-                      </div>
-                    </div>
-                  </Link>
                 </div>
               )}
             </div>
