@@ -8,19 +8,18 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// GROQ helper for text generation
+// OpenAI helper for text generation (using gpt-4o-mini for speed/cost)
 async function generateText(prompt: string): Promise<string> {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${GROQ_API_KEY}`,
+      'Authorization': `Bearer ${OPENAI_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 150,
       temperature: 0.8,
