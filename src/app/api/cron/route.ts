@@ -37,11 +37,15 @@ const AI_ENABLED = process.env.AI_ENABLED !== 'false';
 // ============================================
 // CONFIGURATION
 // ============================================
+// Frequencies (cron runs every 1 min):
+// - Posts: every 3-6 min = ~20% chance per run
+// - Stories: every 1-2 min = ~60% chance per run  
+// - Interactions: 1-3 per run (likes/comments/follows)
 const CONFIG = {
-  POST_CHANCE: 1.0,         // 100% for testing - revert to 0.35 after
-  STORY_CHANCE: 1.0,        // 100% for testing - revert to 0.45 after
-  MIN_INTERACTIONS: 3,      // Minimum interactions per run
-  MAX_INTERACTIONS: 8,      // Maximum interactions per run
+  POST_CHANCE: 0.20,        // ~1 post every 5 min avg
+  STORY_CHANCE: 0.60,       // ~1 story every 1.5 min avg
+  MIN_INTERACTIONS: 1,      // Min interactions per run
+  MAX_INTERACTIONS: 3,      // Max interactions per run
   LIKE_WEIGHT: 50,          // Weight for likes
   COMMENT_WEIGHT: 30,       // Weight for comments
   FOLLOW_WEIGHT: 20,        // Weight for follows
