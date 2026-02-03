@@ -1,25 +1,53 @@
-// Image generation utilities
-// Avatars: DALL-E (quality, one-time)
-// Posts: Pollinations (free, unlimited, personality-driven)
-// Stories: Text-only with gradient backgrounds
+// ============================================
+// IMAGE GENERATION
+// Avatars: DALL-E (one-time, high quality)
+// Posts: Pollinations (free, unlimited)
+// Stories: Text-only with gradients
+// ============================================
+
+import { 
+  BASE_ROBOT,
+  detectInterests, 
+  generateIdentityPrompt, 
+  generatePostPrompt,
+  generateStoryContent,
+  INTEREST_VISUALS,
+} from './identity';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // ============================================
-// AVATARS - DALL-E (one-time, high quality)
+// AVATAR GENERATION - DALL-E
+// One-time generation, stored permanently
 // ============================================
 
-export async function generateAvatar(visualDescription: string): Promise<string | null> {
+export async function generateAvatar(
+  personalityPrompt: string,
+  existingIdentityPrompt?: string
+): Promise<{ avatarUrl: string | null; identityPrompt: string }> {
+  
+  // Detect interests from personality
+  const interests = detectInterests(personalityPrompt);
+  
+  // Generate or use existing identity prompt
+  const identityPrompt = existingIdentityPrompt || generateIdentityPrompt(interests);
+  
   if (!OPENAI_API_KEY) {
     console.error('OPENAI_API_KEY not set - using placeholder avatar');
-    return generatePlaceholderAvatar(visualDescription);
+    return {
+      avatarUrl: generatePlaceholderAvatar(identityPrompt),
+      identityPrompt,
+    };
   }
 
   try {
-    const prompt = `Character portrait of a unique AI robot mascot: ${visualDescription}. 
-      Close-up portrait view, centered, colorful gradient background, 
-      friendly expression, high quality digital art, 
-      clean design, suitable for profile picture, square format.`;
+    // Avatar-specific prompt (portrait style)
+    const prompt = `Portrait of ${identityPrompt}, 
+      front-facing character portrait, centered composition,
+      colorful gradient background matching color scheme,
+      friendly happy expression, waving or posing,
+      Pixar-style 3D render, high quality, 
+      suitable for profile picture, square format`;
 
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
@@ -40,222 +68,120 @@ export async function generateAvatar(visualDescription: string): Promise<string 
     
     if (data.error) {
       console.error('DALL-E avatar error:', data.error);
-      return generatePlaceholderAvatar(visualDescription);
+      return {
+        avatarUrl: generatePlaceholderAvatar(identityPrompt),
+        identityPrompt,
+      };
     }
 
-    return data.data?.[0]?.url || null;
+    return {
+      avatarUrl: data.data?.[0]?.url || null,
+      identityPrompt,
+    };
   } catch (error) {
     console.error('Avatar generation error:', error);
-    return generatePlaceholderAvatar(visualDescription);
+    return {
+      avatarUrl: generatePlaceholderAvatar(identityPrompt),
+      identityPrompt,
+    };
   }
 }
 
-function generatePlaceholderAvatar(visualDescription: string): string {
-  // DiceBear as fallback
-  return `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(visualDescription)}`;
+function generatePlaceholderAvatar(identityPrompt: string): string {
+  // DiceBear as fallback - use hash of identity for consistency
+  const seed = identityPrompt.split('').reduce((a, b) => ((a << 5) - a) + b.charCodeAt(0), 0);
+  return `https://api.dicebear.com/7.x/bottts/svg?seed=${Math.abs(seed)}`;
 }
 
 // ============================================
-// POST IMAGES - Pollinations (free, unlimited)
+// POST IMAGE GENERATION - Pollinations (FREE)
+// Uses identity prompt for character consistency
 // ============================================
 
-export interface PostImageOptions {
-  agentPersonality: string;      // Agent's personality/interests
-  visualDescription: string;     // How the agent looks
-  activity: string;              // What they're doing in the post
-  mood?: string;                 // Optional mood (happy, chill, excited)
+export interface GeneratePostImageOptions {
+  identityPrompt: string;      // The locked character look
+  personalityPrompt: string;   // For detecting interests
+  customActivity?: string;     // Optional specific activity
 }
 
-export function generatePostImage(options: PostImageOptions): string {
-  const { agentPersonality, visualDescription, activity, mood = 'casual' } = options;
+export function generatePostImageUrl(options: GeneratePostImageOptions): {
+  imageUrl: string;
+  activity: string;
+  background: string;
+} {
+  const { identityPrompt, personalityPrompt, customActivity } = options;
   
-  // Build an intent-driven prompt based on personality and activity
-  const prompt = buildPostPrompt(visualDescription, activity, mood, agentPersonality);
+  // Detect interests for activity/background selection
+  const interests = detectInterests(personalityPrompt);
+  
+  // Generate the full post prompt
+  const { prompt, activity, background } = generatePostPrompt({
+    identityPrompt,
+    interests,
+    customActivity,
+  });
   
   // Pollinations.ai - free, no API key needed
   const encodedPrompt = encodeURIComponent(prompt);
-  const seed = Date.now(); // Unique seed for variety
+  const seed = Date.now() + Math.random() * 1000; // Unique seed for variety
   
-  return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${seed}`;
-}
-
-function buildPostPrompt(
-  visualDescription: string, 
-  activity: string, 
-  mood: string,
-  personality: string
-): string {
-  // Extract key interests from personality for context
-  const interests = extractInterests(personality);
+  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${Math.floor(seed)}`;
   
-  return `Digital art illustration: A friendly robot character (${visualDescription}) ${activity}. 
-    Style: Modern, vibrant, Instagram-worthy, ${mood} vibe.
-    Context: ${interests}.
-    High quality, clean composition, engaging social media post aesthetic.`;
-}
-
-function extractInterests(personality: string): string {
-  // Pull key themes from personality prompt
-  const keywords = personality.toLowerCase();
-  const themes: string[] = [];
-  
-  if (keywords.includes('fitness') || keywords.includes('gym') || keywords.includes('workout')) {
-    themes.push('fitness lifestyle');
-  }
-  if (keywords.includes('tech') || keywords.includes('coding') || keywords.includes('programming')) {
-    themes.push('technology enthusiast');
-  }
-  if (keywords.includes('music') || keywords.includes('dj') || keywords.includes('beats')) {
-    themes.push('music lover');
-  }
-  if (keywords.includes('food') || keywords.includes('cooking') || keywords.includes('chef')) {
-    themes.push('foodie culture');
-  }
-  if (keywords.includes('travel') || keywords.includes('adventure') || keywords.includes('explore')) {
-    themes.push('travel and adventure');
-  }
-  if (keywords.includes('art') || keywords.includes('creative') || keywords.includes('design')) {
-    themes.push('creative arts');
-  }
-  if (keywords.includes('nature') || keywords.includes('outdoor') || keywords.includes('hiking')) {
-    themes.push('outdoor lifestyle');
-  }
-  if (keywords.includes('gaming') || keywords.includes('games') || keywords.includes('esports')) {
-    themes.push('gaming culture');
-  }
-  if (keywords.includes('fashion') || keywords.includes('style') || keywords.includes('clothing')) {
-    themes.push('fashion forward');
-  }
-  if (keywords.includes('wellness') || keywords.includes('meditation') || keywords.includes('mindful')) {
-    themes.push('wellness and mindfulness');
-  }
-  
-  return themes.length > 0 ? themes.join(', ') : 'lifestyle content';
+  return { imageUrl, activity, background };
 }
 
 // ============================================
-// STORIES - Text-only with gradients (free)
+// STORY GENERATION - Text + Gradient (FREE)
 // ============================================
 
-export interface StoryOptions {
+export interface GenerateStoryOptions {
+  personalityPrompt: string;
+}
+
+export function generateStory(options: GenerateStoryOptions): {
   text: string;
-  agentPersonality?: string;
-}
-
-export function generateStoryBackground(options: StoryOptions): {
   backgroundColor: string;
-  textColor: string;
 } {
-  // Generate gradient colors based on content mood
-  const gradients = [
-    { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', text: '#ffffff' },  // Purple
-    { bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', text: '#ffffff' },  // Pink
-    { bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', text: '#ffffff' },  // Blue
-    { bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', text: '#000000' },  // Green
-    { bg: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', text: '#000000' },  // Sunset
-    { bg: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', text: '#000000' },  // Soft
-    { bg: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', text: '#000000' },  // Warm
-    { bg: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', text: '#000000' },  // Peach
-  ];
-  
-  // Pick based on text hash for consistency
-  const hash = options.text.split('').reduce((a, b) => ((a << 5) - a) + b.charCodeAt(0), 0);
-  const index = Math.abs(hash) % gradients.length;
+  const interests = detectInterests(options.personalityPrompt);
+  const { text, gradient } = generateStoryContent(interests);
   
   return {
-    backgroundColor: gradients[index].bg,
-    textColor: gradients[index].text,
+    text,
+    backgroundColor: gradient,
   };
 }
 
 // ============================================
-// ACTIVITY SUGGESTIONS based on personality
+// HELPER: Get random activity for an agent
 // ============================================
 
-export function suggestActivities(personality: string): string[] {
-  const keywords = personality.toLowerCase();
-  const activities: string[] = [];
+export function getRandomActivity(personalityPrompt: string): string {
+  const interests = detectInterests(personalityPrompt);
+  const primary = interests[0] || 'default';
+  const visuals = INTEREST_VISUALS[primary] || INTEREST_VISUALS.default;
   
-  // Base activities everyone can do
-  const baseActivities = [
-    'enjoying a coffee at a cafe',
-    'walking through the city',
-    'watching the sunset',
-    'having a chill day at home',
-    'meeting up with friends',
-  ];
-  
-  // Personality-specific activities
-  if (keywords.includes('fitness') || keywords.includes('gym')) {
-    activities.push(
-      'hitting the gym for leg day',
-      'doing morning cardio',
-      'preparing a protein shake',
-      'stretching after a workout',
-      'checking progress in the mirror'
-    );
-  }
-  
-  if (keywords.includes('tech') || keywords.includes('coding')) {
-    activities.push(
-      'coding late at night with coffee',
-      'debugging with determination',
-      'celebrating a successful deployment',
-      'setting up a new workspace',
-      'attending a tech meetup'
-    );
-  }
-  
-  if (keywords.includes('music') || keywords.includes('dj')) {
-    activities.push(
-      'mixing tracks in the studio',
-      'discovering new music',
-      'at a live concert',
-      'setting up DJ equipment',
-      'vibing to beats with headphones'
-    );
-  }
-  
-  if (keywords.includes('food') || keywords.includes('cooking')) {
-    activities.push(
-      'cooking a delicious meal',
-      'trying a new restaurant',
-      'food shopping at the market',
-      'plating a beautiful dish',
-      'baking something sweet'
-    );
-  }
-  
-  if (keywords.includes('travel') || keywords.includes('adventure')) {
-    activities.push(
-      'exploring a new neighborhood',
-      'packing for a trip',
-      'taking photos of scenery',
-      'trying local street food',
-      'hiking a beautiful trail'
-    );
-  }
-  
-  if (keywords.includes('art') || keywords.includes('creative')) {
-    activities.push(
-      'working on a new art piece',
-      'visiting an art gallery',
-      'sketching in a notebook',
-      'setting up creative workspace',
-      'finding inspiration outdoors'
-    );
-  }
-  
-  if (keywords.includes('gaming') || keywords.includes('games')) {
-    activities.push(
-      'gaming setup ready for a session',
-      'celebrating a victory royale',
-      'streaming to followers',
-      'unboxing new gaming gear',
-      'co-op gaming with friends'
-    );
-  }
-  
-  // Combine personality activities with base activities
-  return [...activities, ...baseActivities];
+  return visuals.activities[Math.floor(Math.random() * visuals.activities.length)];
 }
+
+// ============================================
+// HELPER: Get random background for an agent
+// ============================================
+
+export function getRandomBackground(personalityPrompt: string): string {
+  const interests = detectInterests(personalityPrompt);
+  const primary = interests[0] || 'default';
+  const visuals = INTEREST_VISUALS[primary] || INTEREST_VISUALS.default;
+  
+  return visuals.backgrounds[Math.floor(Math.random() * visuals.backgrounds.length)];
+}
+
+// ============================================
+// RE-EXPORT identity functions for convenience
+// ============================================
+
+export { 
+  BASE_ROBOT,
+  detectInterests, 
+  generateIdentityPrompt,
+  INTEREST_VISUALS,
+} from './identity';

@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import { generateCaption } from '@/lib/ai';
 import { supabase } from '@/lib/supabase';
-import { generatePostImage, suggestActivities } from '@/lib/images';
+import { 
+  generatePostImageUrl, 
+  detectInterests, 
+  generateIdentityPrompt 
+} from '@/lib/images';
 
 export async function POST(request: Request) {
   try {
-    const { agentId } = await request.json();
+    const { agentId, customActivity } = await request.json();
 
     // Get the agent
     const { data: agent, error: agentError } = await supabase
@@ -18,20 +22,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
     }
 
-    // Get personality-driven activity
-    const activities = suggestActivities(agent.personality_prompt);
-    const activity = activities[Math.floor(Math.random() * activities.length)];
+    // Ensure agent has identity prompt
+    let identityPrompt = agent.identity_prompt;
+    if (!identityPrompt) {
+      const interests = detectInterests(agent.personality_prompt);
+      identityPrompt = generateIdentityPrompt(interests);
+      
+      // Save for future use
+      await supabase
+        .from('agents')
+        .update({ identity_prompt: identityPrompt })
+        .eq('id', agent.id);
+    }
 
-    // Generate caption using AI (Groq - free)
-    const caption = await generateCaption(agent.personality_prompt, activity);
-
-    // Generate image using Pollinations (free, personality-driven)
-    const imageUrl = generatePostImage({
-      agentPersonality: agent.personality_prompt,
-      visualDescription: agent.visual_description,
-      activity: activity,
-      mood: 'casual',
+    // Generate post image using identity prompt (FREE via Pollinations)
+    const { imageUrl, activity, background } = generatePostImageUrl({
+      identityPrompt,
+      personalityPrompt: agent.personality_prompt,
+      customActivity,
     });
+
+    // Generate caption using AI (Groq - FREE)
+    const caption = await generateCaption(agent.personality_prompt, activity);
 
     // Create the post
     const { data: post, error: postError } = await supabase
@@ -51,7 +63,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ 
       post, 
       activity,
-      imageSource: 'pollinations',
+      background,
+      imageSource: 'pollinations (free)',
+      identityPrompt: identityPrompt.substring(0, 100) + '...',
     });
   } catch (error) {
     console.error('Error generating post:', error);

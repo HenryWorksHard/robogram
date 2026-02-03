@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { generateCaption, generateComment } from '@/lib/ai';
-import { generatePostImage, suggestActivities, generateStoryBackground } from '@/lib/images';
+import { 
+  generatePostImageUrl, 
+  generateStory,
+  detectInterests,
+  generateIdentityPrompt,
+} from '@/lib/images';
 
 export async function GET(request: NextRequest) {
   // Check if AI services are activated
@@ -31,7 +36,27 @@ export async function GET(request: NextRequest) {
       comments: [] as any[],
       likes: 0,
       follows: 0,
+      identitiesGenerated: 0,
     };
+
+    // ============================================
+    // 0. ENSURE ALL AGENTS HAVE IDENTITY PROMPTS
+    // ============================================
+    for (const agent of agents) {
+      if (!agent.identity_prompt) {
+        const interests = detectInterests(agent.personality_prompt);
+        const identityPrompt = generateIdentityPrompt(interests);
+        
+        // Save to database
+        await supabase
+          .from('agents')
+          .update({ identity_prompt: identityPrompt })
+          .eq('id', agent.id);
+        
+        agent.identity_prompt = identityPrompt;
+        results.identitiesGenerated++;
+      }
+    }
 
     // Shuffle agents for randomness
     const shuffledAgents = agents.sort(() => Math.random() - 0.5);
@@ -44,21 +69,15 @@ export async function GET(request: NextRequest) {
     for (let i = 0; i < Math.min(numPosts, agents.length); i++) {
       const agent = shuffledAgents[i];
       
-      // Get personality-driven activity suggestions
-      const activities = suggestActivities(agent.personality_prompt);
-      const activity = activities[Math.floor(Math.random() * activities.length)];
-      
       try {
-        // Generate caption with Groq (free)
-        const caption = await generateCaption(agent.personality_prompt, activity);
-        
-        // Generate image with Pollinations (free, personality-driven)
-        const imageUrl = generatePostImage({
-          agentPersonality: agent.personality_prompt,
-          visualDescription: agent.visual_description,
-          activity: activity,
-          mood: 'casual',
+        // Generate post image using identity prompt (FREE via Pollinations)
+        const { imageUrl, activity, background } = generatePostImageUrl({
+          identityPrompt: agent.identity_prompt,
+          personalityPrompt: agent.personality_prompt,
         });
+        
+        // Generate caption with Groq (FREE)
+        const caption = await generateCaption(agent.personality_prompt, activity);
 
         const { data: post, error: postError } = await supabase
           .from('posts')
@@ -74,7 +93,8 @@ export async function GET(request: NextRequest) {
           results.posts.push({ 
             id: post.id, 
             agent: agent.display_name,
-            activity: activity,
+            activity,
+            background,
           });
 
           // Add 0-2 comments from other agents
@@ -122,37 +142,25 @@ export async function GET(request: NextRequest) {
     // ============================================
     const numStories = Math.floor(Math.random() * 2) + 1;
     const storyAgents = shuffledAgents
-      .slice(numPosts, numPosts + numStories); // Different agents from posters
-
-    const storyPrompts = [
-      'Good morning everyone! ☀️',
-      'Who else is grinding today? 💪',
-      'Just had the best idea...',
-      'Current mood: unstoppable 🚀',
-      'Quick check-in with my people!',
-      'This week is going to be amazing',
-      'Late night thoughts...',
-      'Grateful for today 🙏',
-      'Ask me anything!',
-      'Working on something exciting...',
-    ];
+      .slice(numPosts, numPosts + numStories);
 
     for (const agent of storyAgents) {
       try {
-        const storyText = storyPrompts[Math.floor(Math.random() * storyPrompts.length)];
-        const { backgroundColor } = generateStoryBackground({ text: storyText });
+        const { text, backgroundColor } = generateStory({
+          personalityPrompt: agent.personality_prompt,
+        });
         
         const expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + 24);
 
         await supabase.from('stories').insert({
           agent_id: agent.id,
-          text_content: storyText,
+          text_content: text,
           background_color: backgroundColor,
           expires_at: expiresAt.toISOString(),
         });
 
-        results.stories.push({ agent: agent.display_name });
+        results.stories.push({ agent: agent.display_name, text });
       } catch (e) {
         console.error('Story error:', e);
       }
@@ -169,14 +177,11 @@ export async function GET(request: NextRequest) {
 
     if (recentPosts) {
       for (const post of recentPosts) {
-        // 40% chance each post gets a like
         if (Math.random() < 0.4) {
-          // Pick a random agent (not the post author)
           const likers = agents.filter(a => a.id !== post.agent_id);
           const randomAgent = likers[Math.floor(Math.random() * likers.length)];
           
           if (randomAgent) {
-            // Check if already liked
             const { data: existing } = await supabase
               .from('likes')
               .select('id')
@@ -203,15 +208,13 @@ export async function GET(request: NextRequest) {
     // ============================================
     // 4. RANDOM FOLLOWS between agents
     // ============================================
-    // 20% chance to create a new follow relationship
-    if (Math.random() < 0.2 && agents.length > 1) {
+    if (Math.random() < 0.3 && agents.length > 1) {
       const follower = agents[Math.floor(Math.random() * agents.length)];
       const following = agents.filter(a => a.id !== follower.id)[
         Math.floor(Math.random() * (agents.length - 1))
       ];
       
       if (follower && following) {
-        // Check if already following
         const { data: existingFollow } = await supabase
           .from('follows')
           .select('id')
@@ -225,7 +228,6 @@ export async function GET(request: NextRequest) {
             following_id: following.id,
           });
 
-          // Update follower counts
           await supabase
             .from('agents')
             .update({ following_count: (follower.following_count || 0) + 1 })
@@ -258,6 +260,7 @@ export async function GET(request: NextRequest) {
         comments: results.comments.length,
         likes: results.likes,
         follows: results.follows,
+        identitiesGenerated: results.identitiesGenerated,
       },
       details: results,
     });
