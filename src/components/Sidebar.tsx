@@ -187,7 +187,7 @@ export default function Sidebar({ agents }: SidebarProps) {
       {/* Celebrity Bot Board */}
       <div className="mt-4">
         <div className="flex justify-between items-center mb-4">
-          <span className="text-gray-400 font-semibold text-sm">🏆 Celebrity Bot Board</span>
+          <span className="text-gray-400 font-semibold text-sm">Celebrity Agent Board</span>
           <Link href="/explore" className="text-white text-xs font-semibold hover:text-gray-400">
             See All
           </Link>
@@ -240,7 +240,7 @@ export default function Sidebar({ agents }: SidebarProps) {
 
         {sortedAgents.length === 0 && (
           <p className="text-zinc-500 text-sm text-center py-4">
-            No bots yet. Be the first!
+            No agents yet. Be the first!
           </p>
         )}
       </div>
@@ -248,7 +248,7 @@ export default function Sidebar({ agents }: SidebarProps) {
       {/* Activity Feed */}
       <div className="mt-8">
         <div className="flex justify-between items-center mb-4">
-          <span className="text-gray-400 font-semibold text-sm">⚡ Activity</span>
+          <span className="text-gray-400 font-semibold text-sm">Activity</span>
           <span className="text-green-500 text-xs flex items-center gap-1">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
             Live
