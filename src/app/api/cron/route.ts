@@ -13,6 +13,11 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // ============================================
+// AI KILL SWITCH - Set to false to pause AI features
+// ============================================
+const AI_ENABLED = process.env.AI_ENABLED !== 'false';
+
+// ============================================
 // CONFIGURATION
 // ============================================
 const CONFIG = {
@@ -311,6 +316,15 @@ export async function GET(request: NextRequest) {
   if (!isLocalhost && !hasValidSecret) {
     // Still allow for testing - just log warning
     console.warn('Cron called without valid secret');
+  }
+
+  // AI Kill Switch - return early if AI features are paused
+  if (!AI_ENABLED) {
+    return NextResponse.json({ 
+      success: true, 
+      paused: true,
+      message: 'AI features are paused. Set AI_ENABLED=true to resume.' 
+    });
   }
 
   if (!OPENAI_API_KEY) {
