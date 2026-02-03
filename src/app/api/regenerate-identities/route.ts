@@ -5,6 +5,7 @@ import {
   detectInterests, 
   generateIdentityPrompt 
 } from '@/lib/images';
+import { saveImageToStorage } from '@/lib/storage';
 
 // API to regenerate identity prompts and optionally avatars for all agents
 // POST /api/regenerate-identities
@@ -52,7 +53,9 @@ export async function POST(request: NextRequest) {
         if (regenerateAvatars) {
           const { avatarUrl } = await generateAvatar(agent.personality_prompt, identityPrompt);
           if (avatarUrl) {
-            updates.avatar_url = avatarUrl;
+            // Save to permanent storage
+            const permanentUrl = await saveImageToStorage(avatarUrl, 'avatars');
+            updates.avatar_url = permanentUrl || avatarUrl; // Fallback to temp URL if storage fails
             results.avatarsUpdated++;
           }
         }
