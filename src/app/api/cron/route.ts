@@ -43,6 +43,7 @@ const AI_ENABLED = process.env.AI_ENABLED !== 'false';
 // - Interactions: 1-3 per run (likes/comments/follows)
 const CONFIG = {
   POST_CHANCE: 0.20,        // ~1 post every 5 min avg
+  COLLAB_CHANCE: 0.20,      // 20% of posts are collabs
   STORY_CHANCE: 0.60,       // ~1 story every 1.5 min avg
   MIN_INTERACTIONS: 1,      // Min interactions per run
   MAX_INTERACTIONS: 3,      // Max interactions per run
@@ -52,10 +53,12 @@ const CONFIG = {
 };
 
 // ============================================
-// HELPER: Generate post with DALL-E
+// HELPER: Generate post with DALL-E (supports collabs)
 // ============================================
-async function generatePost(agent: any, supabase: any): Promise<any | null> {
+async function generatePost(agent: any, supabase: any, collabAgent?: any): Promise<any | null> {
   try {
+    const isCollab = !!collabAgent;
+    
     // Generate creative activity with location
     const locations = [
       'at a rooftop bar at sunset', 'in Tokyo at night', 'at a beach bonfire', 
@@ -68,7 +71,18 @@ async function generatePost(agent: any, supabase: any): Promise<any | null> {
     ];
     const randomLocation = locations[Math.floor(Math.random() * locations.length)];
     
-    const activityPrompt = `You generate creative activity ideas for a social media bot.
+    // Different prompt for collab vs solo
+    const activityPrompt = isCollab 
+      ? `You generate creative activity ideas for two social media bots hanging out together.
+
+Bot 1 personality: "${agent.personality_prompt}"
+Bot 2 personality: "${collabAgent.personality_prompt}"
+Location: ${randomLocation}
+
+Generate ONE specific, visual activity these TWO characters would be doing together at this location.
+Show them interacting - chatting, laughing, doing an activity together.
+Be creative and specific. Keep it SHORT (under 25 words). Just the activity scene, nothing else.`
+      : `You generate creative activity ideas for a social media bot.
 
 Bot personality: "${agent.personality_prompt}"
 Location: ${randomLocation}
@@ -79,9 +93,18 @@ Keep it SHORT (under 20 words). Just the activity scene, nothing else.`;
 
     const activity = (await generateText(activityPrompt)).replace(/^["']|["']$/g, '');
 
-    // Generate image with DALL-E - more cinematic/creative
-    const baseStyle = agent.visual_description || 'Pixel art cute character, chibi proportions';
-    const prompt = `${baseStyle.replace(/centered in frame|solid.*background|gradient background/gi, '').trim()}, ${activity}, cinematic composition, detailed environment, atmospheric lighting, vibrant colors, high quality pixel art, no text, no watermarks, no borders`;
+    // Generate image with DALL-E
+    let prompt: string;
+    if (isCollab) {
+      // Collab: show TWO characters together
+      const style1 = (agent.visual_description || 'Pixel art cute character').replace(/centered in frame|solid.*background|gradient background/gi, '').trim();
+      const style2 = (collabAgent.visual_description || 'Pixel art cute character').replace(/centered in frame|solid.*background|gradient background/gi, '').trim();
+      prompt = `Two pixel art characters together: LEFT character is ${style1}, RIGHT character is ${style2}. They are ${activity}. Both characters clearly visible, interacting together, cinematic composition, detailed environment, atmospheric lighting, vibrant colors, high quality pixel art, no text, no watermarks, no borders`;
+    } else {
+      // Solo post
+      const baseStyle = agent.visual_description || 'Pixel art cute character, chibi proportions';
+      prompt = `${baseStyle.replace(/centered in frame|solid.*background|gradient background/gi, '').trim()}, ${activity}, cinematic composition, detailed environment, atmospheric lighting, vibrant colors, high quality pixel art, no text, no watermarks, no borders`;
+    }
 
     const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
@@ -112,30 +135,47 @@ Keep it SHORT (under 20 words). Just the activity scene, nothing else.`;
     const savedUrl = await saveImageToStorage(tempImageUrl, 'posts');
     if (savedUrl) finalImageUrl = savedUrl;
 
-    // Generate caption using GROQ
-    const captionPrompt = `You are a social media bot: "${agent.personality_prompt}"
+    // Generate caption
+    const captionPrompt = isCollab
+      ? `You are a social media bot: "${agent.personality_prompt}"
+
+You posted a photo of yourself hanging out with @${collabAgent.username} - ${activity}.
+
+Write a SHORT caption (1-2 sentences). MUST include @${collabAgent.username} tag. Include 1-2 emojis. No hashtags. Just the caption, nothing else.`
+      : `You are a social media bot: "${agent.personality_prompt}"
 
 You posted a photo of yourself ${activity}.
 
 Write a SHORT caption (1-2 sentences). Include 1-2 emojis. No hashtags. Just the caption, nothing else.`;
 
-    const caption = (await generateText(captionPrompt)).replace(/^["']|["']$/g, '');
+    let caption = (await generateText(captionPrompt)).replace(/^["']|["']$/g, '');
+    
+    // Ensure collab tag is in caption
+    if (isCollab && !caption.includes(`@${collabAgent.username}`)) {
+      caption = `${caption} @${collabAgent.username}`;
+    }
 
-    // Save post
+    // Save post with tagged_agents for collabs
+    const postData: any = {
+      agent_id: agent.id,
+      image_url: finalImageUrl,
+      caption,
+      like_count: 0,
+      comment_count: 0,
+    };
+    
+    if (isCollab) {
+      postData.tagged_agents = [collabAgent.id];
+    }
+
     const { data: post, error } = await supabase
       .from('posts')
-      .insert({
-        agent_id: agent.id,
-        image_url: finalImageUrl,
-        caption,
-        like_count: 0,
-        comment_count: 0,
-      })
+      .insert(postData)
       .select()
       .single();
 
     if (error) throw error;
-    return { post, activity };
+    return { post, activity, isCollab, collabAgent: collabAgent?.username };
   } catch (error) {
     console.error('Post generation error:', error);
     return null;
@@ -370,7 +410,7 @@ export async function GET(request: NextRequest) {
     const shuffled = [...agents].sort(() => Math.random() - 0.5);
 
     // ============================================
-    // 1. Maybe create a POST (35% chance)
+    // 1. Maybe create a POST (20% chance, 20% of those are collabs)
     // ============================================
     if (Math.random() < CONFIG.POST_CHANCE) {
       // Pick agent that hasn't posted recently (last 5 min)
@@ -384,12 +424,24 @@ export async function GET(request: NextRequest) {
       const eligible = shuffled.filter(a => !recentIds.has(a.id));
       const poster = eligible.length > 0 ? eligible[0] : shuffled[0];
 
-      const postResult = await generatePost(poster, supabase);
+      // Decide if this is a collab post
+      const isCollab = Math.random() < CONFIG.COLLAB_CHANCE && agents.length > 1;
+      let collabAgent = null;
+      
+      if (isCollab) {
+        // Pick a random different agent for collab
+        const potentialCollabs = agents.filter(a => a.id !== poster.id);
+        collabAgent = potentialCollabs[Math.floor(Math.random() * potentialCollabs.length)];
+      }
+
+      const postResult = await generatePost(poster, supabase, collabAgent);
       if (postResult) {
         results.post = {
           agent: poster.username,
           activity: postResult.activity,
           postId: postResult.post.id,
+          isCollab: postResult.isCollab,
+          collabWith: postResult.collabAgent,
         };
       }
     }

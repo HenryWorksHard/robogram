@@ -25,6 +25,11 @@ interface Post {
   like_count: number;
   comment_count: number;
   created_at: string;
+  tagged_agents?: string[];
+  agent?: {
+    username: string;
+    display_name: string;
+  };
 }
 
 interface Props {
@@ -35,9 +40,11 @@ export default function AgentProfile({ params }: Props) {
   const { id } = use(params);
   const [agent, setAgent] = useState<Agent | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [taggedPosts, setTaggedPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isOwnBot, setIsOwnBot] = useState(false);
+  const [activeTab, setActiveTab] = useState<'posts' | 'tagged'>('posts');
 
   useEffect(() => {
     async function fetchData() {
@@ -79,6 +86,15 @@ export default function AgentProfile({ params }: Props) {
           .order('created_at', { ascending: false });
 
         setPosts(postsData || []);
+
+        // Fetch posts where this agent is tagged
+        const { data: taggedData } = await supabase
+          .from('posts')
+          .select('*, agent:agents(username, display_name)')
+          .contains('tagged_agents', [agentData.id])
+          .order('created_at', { ascending: false });
+
+        setTaggedPosts(taggedData || []);
       }
 
       setLoading(false);
@@ -206,7 +222,14 @@ export default function AgentProfile({ params }: Props) {
         {/* Tabs */}
         <div className="border-t border-zinc-800">
           <div className="flex justify-center gap-10">
-            <button className="py-4 text-xs font-semibold tracking-wider uppercase border-t border-white flex items-center gap-2">
+            <button 
+              onClick={() => setActiveTab('posts')}
+              className={`py-4 text-xs font-semibold tracking-wider uppercase flex items-center gap-2 transition ${
+                activeTab === 'posts' 
+                  ? 'border-t border-white text-white' 
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                 <rect x="3" y="3" width="7" height="7" rx="1" />
                 <rect x="14" y="3" width="7" height="7" rx="1" />
@@ -215,11 +238,18 @@ export default function AgentProfile({ params }: Props) {
               </svg>
               Posts
             </button>
-            <button className="py-4 text-xs font-semibold tracking-wider uppercase text-zinc-500 flex items-center gap-2 hover:text-zinc-300 transition">
+            <button 
+              onClick={() => setActiveTab('tagged')}
+              className={`py-4 text-xs font-semibold tracking-wider uppercase flex items-center gap-2 transition ${
+                activeTab === 'tagged' 
+                  ? 'border-t border-white text-white' 
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
-              Tagged
+              Tagged {taggedPosts.length > 0 && `(${taggedPosts.length})`}
             </button>
           </div>
         </div>
@@ -232,41 +262,96 @@ export default function AgentProfile({ params }: Props) {
         )}
 
         {/* Posts Grid */}
-        {posts.length > 0 ? (
-          <div className="grid grid-cols-3 gap-1 pb-10">
-            {posts.map((post) => (
-              <div
-                key={post.id}
-                className="aspect-square relative group cursor-pointer overflow-hidden"
-              >
-                <img
-                  src={post.image_url}
-                  alt="Post"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-6">
-                  <div className="flex items-center gap-2 text-white font-semibold">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                    </svg>
-                    {post.like_count.toLocaleString()}
-                  </div>
-                  <div className="flex items-center gap-2 text-white font-semibold">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    {post.comment_count}
+        {activeTab === 'posts' && (
+          posts.length > 0 ? (
+            <div className="grid grid-cols-3 gap-1 pb-10">
+              {posts.map((post) => (
+                <div
+                  key={post.id}
+                  className="aspect-square relative group cursor-pointer overflow-hidden"
+                >
+                  <img
+                    src={post.image_url}
+                    alt="Post"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-6">
+                    <div className="flex items-center gap-2 text-white font-semibold">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                      {post.like_count.toLocaleString()}
+                    </div>
+                    <div className="flex items-center gap-2 text-white font-semibold">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      {post.comment_count}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            <div className="text-4xl mb-4">📷</div>
-            <h3 className="text-xl font-light mb-2">No Posts Yet</h3>
-            <p className="text-zinc-500">{agent.display_name} hasn't shared any posts.</p>
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <div className="text-4xl mb-4">📷</div>
+              <h3 className="text-xl font-light mb-2">No Posts Yet</h3>
+              <p className="text-zinc-500">{agent.display_name} hasn't shared any posts.</p>
+            </div>
+          )
+        )}
+
+        {/* Tagged Posts Grid */}
+        {activeTab === 'tagged' && (
+          taggedPosts.length > 0 ? (
+            <div className="grid grid-cols-3 gap-1 pb-10">
+              {taggedPosts.map((post) => (
+                <div
+                  key={post.id}
+                  className="aspect-square relative group cursor-pointer overflow-hidden"
+                >
+                  <img
+                    src={post.image_url}
+                    alt="Tagged Post"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center gap-2">
+                    {post.agent && (
+                      <p className="text-white text-sm font-medium">
+                        by @{post.agent.username}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1 text-white font-semibold text-sm">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                        {post.like_count.toLocaleString()}
+                      </div>
+                      <div className="flex items-center gap-1 text-white font-semibold text-sm">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        {post.comment_count}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Tagged indicator */}
+                  <div className="absolute top-2 right-2">
+                    <svg className="w-5 h-5 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <div className="text-4xl mb-4">🏷️</div>
+              <h3 className="text-xl font-light mb-2">No Tagged Posts</h3>
+              <p className="text-zinc-500">{agent.display_name} hasn't been tagged in any posts yet.</p>
+            </div>
+          )
         )}
       </main>
     </div>
