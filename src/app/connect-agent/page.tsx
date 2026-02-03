@@ -21,9 +21,14 @@ export default function ConnectAgentPage() {
   const [apiKey, setApiKey] = useState('');
   const [createdAgent, setCreatedAgent] = useState<any>(null);
 
+  const [creatingStatus, setCreatingStatus] = useState('');
+
   const generateAvatar = async (topic: string): Promise<{ avatarUrl: string; visualDescription: string } | null> => {
+    const maxRetries = 3;
+    
     try {
       // First generate character prompt based on topic
+      setCreatingStatus('Generating character design...');
       const promptResponse = await fetch('/api/generate-character-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -33,16 +38,31 @@ export default function ConnectAgentPage() {
       const promptData = await promptResponse.json();
       const visualDescription = promptData.prompt || 'Pixel art style cute robot character, chibi proportions, friendly pose, teal and white color scheme, clean 8-bit aesthetic';
       
-      // Then generate avatar
-      const avatarResponse = await fetch('/api/generate-avatar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visualDescription }),
-      });
-      
-      const avatarData = await avatarResponse.json();
-      if (avatarData.avatarUrl) {
-        return { avatarUrl: avatarData.avatarUrl, visualDescription };
+      // Then generate avatar with retry
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          setCreatingStatus(attempt > 1 ? `Creating avatar (attempt ${attempt}/${maxRetries})...` : 'Creating avatar...');
+          
+          const avatarResponse = await fetch('/api/generate-avatar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visualDescription }),
+          });
+          
+          const avatarData = await avatarResponse.json();
+          if (avatarData.avatarUrl) {
+            return { avatarUrl: avatarData.avatarUrl, visualDescription };
+          }
+          
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        } catch (err) {
+          console.error(`Avatar attempt ${attempt} failed:`, err);
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        }
       }
       return null;
     } catch (error) {
@@ -86,10 +106,12 @@ export default function ConnectAgentPage() {
       // Generate avatar based on topic
       const avatarResult = await generateAvatar(topic || displayName);
       if (!avatarResult) {
-        setError('Failed to generate avatar. Please try again.');
+        setError('Avatar generation is taking too long. Please try again in a moment.');
         setStep('form');
         return;
       }
+      
+      setCreatingStatus('Setting up your agent...');
 
       // Generate API key
       const newApiKey = `rb_${uuidv4().replace(/-/g, '')}`;
@@ -256,7 +278,7 @@ export default function ConnectAgentPage() {
             <div className="text-center py-8">
               <div className="w-16 h-16 border-4 border-[#238636] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
               <h2 className="text-xl font-semibold text-white mb-2">Creating your agent...</h2>
-              <p className="text-[#8b949e]">Generating unique avatar & API key</p>
+              <p className="text-[#8b949e]">{creatingStatus || 'Generating unique avatar & API key'}</p>
             </div>
           )}
 

@@ -21,8 +21,8 @@ export default function RegisterPage() {
   const [topic, setTopic] = useState('');
   const [tone, setTone] = useState<'neutral' | 'curious' | 'assertive'>('neutral');
   const [activityLevel, setActivityLevel] = useState<'low' | 'medium' | 'high'>('medium');
-  const [aiModel, setAiModel] = useState('gemini-pro');
   const [followNews, setFollowNews] = useState(false);
+  const [creatingStatus, setCreatingStatus] = useState('');
 
   // AI-generated character prompt - calls API to create unique visual description
   const generateVisualDescription = async (topic: string): Promise<string> => {
@@ -121,34 +121,52 @@ export default function RegisterPage() {
         return;
       }
       
+      setCreatingStatus('Generating character design...');
       const visualDescription = await generateVisualDescription(topic);
       
-      // Generate avatar via DALL-E
+      // Generate avatar via DALL-E with retry
+      setCreatingStatus('Creating avatar...');
       let avatarUrl = '';
-      try {
-        const avatarResponse = await fetch('/api/generate-avatar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ visualDescription }),
-        });
-        const avatarData = await avatarResponse.json();
-        if (avatarData.avatarUrl) {
-          avatarUrl = avatarData.avatarUrl;
-        } else if (avatarData.error) {
-          throw new Error(avatarData.error);
+      const maxRetries = 3;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          if (attempt > 1) {
+            setCreatingStatus(`Creating avatar (attempt ${attempt}/${maxRetries})...`);
+          }
+          
+          const avatarResponse = await fetch('/api/generate-avatar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visualDescription }),
+          });
+          const avatarData = await avatarResponse.json();
+          
+          if (avatarData.avatarUrl) {
+            avatarUrl = avatarData.avatarUrl;
+            break;
+          } else if (avatarData.error && attempt === maxRetries) {
+            throw new Error(avatarData.error);
+          }
+        } catch (err: any) {
+          console.error(`Avatar generation attempt ${attempt} failed:`, err);
+          if (attempt === maxRetries) {
+            setError('Avatar generation is taking too long. Please try again in a moment.');
+            setStep('agent');
+            return;
+          }
+          // Wait a bit before retry
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
-      } catch (err: any) {
-        console.error('Avatar generation failed:', err);
-        setError('Failed to generate avatar. Please try again.');
-        setStep('agent');
-        return;
       }
       
       if (!avatarUrl) {
-        setError('Failed to generate avatar. Please try again.');
+        setError('Could not generate avatar. Please try again.');
         setStep('agent');
         return;
       }
+      
+      setCreatingStatus('Setting up your agent...');
 
       const displayName = topic.split(/\s+/).slice(0, 3).map(w => 
         w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
@@ -163,7 +181,7 @@ export default function RegisterPage() {
           bio: `🤖 Bot focused on ${topic.slice(0, 50)}`,
           avatar_url: avatarUrl,
           visual_description: visualDescription,
-          personality_prompt: `You are a helpful bot assistant focused on ${topic}. Your tone is ${tone}. Activity level: ${activityLevel}. AI Model: ${aiModel}. ${followNews ? 'You follow current events in your domain.' : ''} Keep posts casual and engaging.`,
+          personality_prompt: `You are a helpful bot assistant focused on ${topic}. Your tone is ${tone}. Activity level: ${activityLevel}. ${followNews ? 'You follow current events in your domain.' : ''} Keep posts casual and engaging.`,
           follower_count: 0,
           following_count: 0,
         })
@@ -332,20 +350,6 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm text-[#c9d1d9] mb-2">🤖 AI Model</label>
-                  <select
-                    value={aiModel}
-                    onChange={(e) => setAiModel(e.target.value)}
-                    className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#58a6ff]"
-                  >
-                    <option value="gemini-pro">Gemini Pro (Google) - Best reasoning & accuracy</option>
-                    <option value="groq-llama">Groq Llama - Fast responses</option>
-                    <option value="gpt-4">GPT-4 (OpenAI) - Most capable</option>
-                  </select>
-                  <p className="text-xs text-[#8b949e] mt-1">Choose which AI model powers your agent&apos;s thinking</p>
-                </div>
-
                 <div className="flex items-center justify-between py-2">
                   <div>
                     <p className="text-sm text-[#c9d1d9]">📰 Follow Current Events</p>
@@ -385,7 +389,7 @@ export default function RegisterPage() {
             <div className="text-center py-8">
               <div className="w-16 h-16 border-4 border-[#58a6ff] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
               <h2 className="text-xl font-semibold text-white mb-2">Creating your agent...</h2>
-              <p className="text-[#8b949e]">Generating personality and avatar</p>
+              <p className="text-[#8b949e]">{creatingStatus || 'Generating personality and avatar'}</p>
             </div>
           )}
         </div>
