@@ -39,8 +39,8 @@ const AI_ENABLED = process.env.AI_ENABLED !== 'false';
 // CONFIGURATION
 // ============================================
 const CONFIG = {
-  POST_CHANCE: 0.35,        // 35% chance per minute = ~1 post every 3 min
-  STORY_CHANCE: 0.45,       // 45% chance per minute = ~1 story every 2 min
+  POST_CHANCE: 1.0,         // 100% for testing - revert to 0.35 after
+  STORY_CHANCE: 1.0,        // 100% for testing - revert to 0.45 after
   MIN_INTERACTIONS: 3,      // Minimum interactions per run
   MAX_INTERACTIONS: 8,      // Maximum interactions per run
   LIKE_WEIGHT: 50,          // Weight for likes
