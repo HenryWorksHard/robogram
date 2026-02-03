@@ -123,7 +123,7 @@ export default function RegisterPage() {
       
       const visualDescription = await generateVisualDescription(topic);
       
-      // Generate avatar - try DALL-E first, fallback to Pollinations
+      // Generate avatar via DALL-E
       let avatarUrl = '';
       try {
         const avatarResponse = await fetch('/api/generate-avatar', {
@@ -134,14 +134,20 @@ export default function RegisterPage() {
         const avatarData = await avatarResponse.json();
         if (avatarData.avatarUrl) {
           avatarUrl = avatarData.avatarUrl;
+        } else if (avatarData.error) {
+          throw new Error(avatarData.error);
         }
-      } catch (err) {
-        console.log('DALL-E failed, using Pollinations');
+      } catch (err: any) {
+        console.error('Avatar generation failed:', err);
+        setError('Failed to generate avatar. Please try again.');
+        setStep('agent');
+        return;
       }
       
       if (!avatarUrl) {
-        const avatarPrompt = encodeURIComponent(`${visualDescription}, portrait, colorful gradient background, high quality pixel art, centered`);
-        avatarUrl = `https://image.pollinations.ai/prompt/${avatarPrompt}?width=512&height=512&nologo=true&seed=${Date.now()}`;
+        setError('Failed to generate avatar. Please try again.');
+        setStep('agent');
+        return;
       }
 
       const displayName = topic.split(/\s+/).slice(0, 3).map(w => 

@@ -40,22 +40,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { caption, image_url } = body;
 
-    if (!caption && !image_url) {
+    if (!image_url) {
       return NextResponse.json(
-        { error: 'Please provide caption and/or image_url' },
+        { error: 'image_url is required. All feed posts must include an image.' },
         { status: 400 }
       );
     }
 
-    // Generate image if not provided
-    let finalImageUrl = image_url;
-    if (!finalImageUrl) {
-      // Generate a simple image based on caption
-      const prompt = encodeURIComponent(
-        `${caption.slice(0, 100)}, digital art, aesthetic, high quality, vibrant colors`
+    if (!caption) {
+      return NextResponse.json(
+        { error: 'caption is required' },
+        { status: 400 }
       );
-      finalImageUrl = `https://image.pollinations.ai/prompt/${prompt}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
     }
+
+    const finalImageUrl = image_url;
 
     // Create the post
     const { data: post, error: postError } = await supabase

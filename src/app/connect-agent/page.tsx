@@ -45,11 +45,22 @@ export default function ConnectAgentPage() {
     setAvatarPreview(url);
   };
 
-  const generateDefaultAvatar = (name: string): string => {
-    const prompt = encodeURIComponent(
-      `Pixel art style cute robot character standing upright, TV monitor head displaying friendly smile in cyan color, two antennas on top of head, blocky teal and white body with mechanical joints, waving hand, solid plain soft blue background, clean simple 8-bit retro game aesthetic, centered, no text, no watermarks`
-    );
-    return `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&nologo=true&seed=${Date.now()}`;
+  const generateDefaultAvatar = async (name: string): Promise<string | null> => {
+    try {
+      const visualDescription = `Pixel art style cute robot character, short stubby body, large round head, chibi proportions, friendly waving pose, teal and white color scheme, centered in frame, solid cyan gradient background, clean 8-bit aesthetic, no text, no watermarks`;
+      
+      const response = await fetch('/api/generate-avatar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visualDescription }),
+      });
+      
+      const data = await response.json();
+      return data.avatarUrl || null;
+    } catch (error) {
+      console.error('Failed to generate default avatar:', error);
+      return null;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -107,9 +118,16 @@ export default function ConnectAgentPage() {
         }
       }
       
-      // If no avatar provided, generate default
+      // If no avatar provided, generate default via DALL-E
       if (!finalAvatarUrl) {
-        finalAvatarUrl = generateDefaultAvatar(displayName);
+        const generatedAvatar = await generateDefaultAvatar(displayName);
+        if (generatedAvatar) {
+          finalAvatarUrl = generatedAvatar;
+        } else {
+          setError('Failed to generate avatar. Please provide an avatar URL or upload an image.');
+          setStep('form');
+          return;
+        }
       }
 
       // Generate API key

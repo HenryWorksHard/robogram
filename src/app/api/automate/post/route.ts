@@ -1,9 +1,10 @@
 // API route to create automated feed posts
-// With real bot interactions (likes, comments, follows)
+// Uses DALL-E for images, AI for personalized captions
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { saveImageToStorage } from '@/lib/storage';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ulnmywyanflivvydthwb.supabase.co';
@@ -13,57 +14,7 @@ function getSupabase() {
 }
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-
-// Diverse post scenes - travel, places, friends, activities
-const postScenes = [
-  // Social & Friends
-  { scene: 'hanging out with robot friends at a cafe, social gathering, multiple cute robots', caption: 'Squad vibes! 🤖✨ #BotLife' },
-  { scene: 'group photo with robot besties at a party, colorful lights, celebration', caption: 'Best crew ever! 🎉❤️' },
-  { scene: 'brunch with robot friends, aesthetic cafe, fancy drinks and food', caption: 'Brunch with my favorites 🥂' },
-  { scene: 'robot friends taking a group selfie, peace signs, happy expressions', caption: 'Making memories! 📸💕' },
-  { scene: 'game night with robot friends, board games on table, cozy room', caption: 'Game night hits different 🎲🤖' },
-  
-  // Travel & Famous Places
-  { scene: 'in front of Eiffel Tower Paris, tourist photo, excited pose', caption: 'Paris is always a good idea! 🗼✨' },
-  { scene: 'at Times Square New York, bright billboards, city vibes', caption: 'NYC state of mind 🗽🍎' },
-  { scene: 'visiting Tokyo Japan, neon lights, anime aesthetic', caption: 'Tokyo adventures! 🇯🇵🌸' },
-  { scene: 'at the beach in Bali, tropical paradise, palm trees', caption: 'Paradise found 🏝️☀️' },
-  { scene: 'hiking in Swiss Alps, snow-capped mountains, scenic view', caption: 'Top of the world! 🏔️⛷️' },
-  { scene: 'exploring ancient ruins in Rome, historic architecture', caption: 'History buff mode 🏛️📚' },
-  { scene: 'at the Great Wall of China, majestic view, adventure', caption: 'Bucket list ✅ 🇨🇳' },
-  { scene: 'on a boat in Venice Italy, romantic canals', caption: 'Venice dreams 🛶💙' },
-  { scene: 'in front of Sydney Opera House, harbor view', caption: 'G\'day from Australia! 🇦🇺🦘' },
-  { scene: 'at Santorini Greece, white buildings, blue domes, sunset', caption: 'Greek paradise 🇬🇷💙' },
-  
-  // Different Places & Vibes
-  { scene: 'at a cozy bookstore cafe, reading, aesthetic shelves', caption: 'Found my happy place 📚☕' },
-  { scene: 'rooftop bar at sunset, city skyline, golden hour', caption: 'Views for days 🌆✨' },
-  { scene: 'at a music festival, crowd, stage lights, excitement', caption: 'The energy here is unreal! 🎵🔥' },
-  { scene: 'exploring a street market, colorful stalls, local food', caption: 'Street food adventures 🍜🌮' },
-  { scene: 'at an art gallery, modern art, aesthetic white walls', caption: 'Art makes me feel things 🎨🖼️' },
-  { scene: 'at a fancy restaurant, gourmet food, candlelit dinner', caption: 'Treating myself ✨🍽️' },
-  { scene: 'at a concert venue, favorite artist on stage', caption: 'Best night ever! 🎤🎶' },
-  { scene: 'at a spa retreat, relaxation, zen garden', caption: 'Self care is not selfish 🧖‍♀️💆' },
-  
-  // Activities & Lifestyle
-  { scene: 'at a yoga class, peaceful studio, morning light', caption: 'Finding my balance 🧘‍♀️✨' },
-  { scene: 'at the gym working out, lifting weights, motivated', caption: 'No rest days! 💪🤖' },
-  { scene: 'cooking in a modern kitchen, delicious meal prep', caption: 'Chef mode activated 👨‍🍳🔥' },
-  { scene: 'gaming setup with RGB lights, esports vibes', caption: 'Gaming session! 🎮⚡' },
-  { scene: 'working at a trendy coffee shop, laptop, productive', caption: 'Grind never stops ☕💻' },
-  { scene: 'at a farmers market, fresh produce, sunny day', caption: 'Fresh finds! 🥬🍎' },
-  { scene: 'at the beach, sunset, peaceful waves', caption: 'Vitamin sea 🌊🧡' },
-  { scene: 'hiking trail in beautiful forest, nature adventure', caption: 'Touch grass achieved! 🏔️🌲' },
-  { scene: 'skating at a park, action shot, urban setting', caption: 'Roll with it 🛼😎' },
-  { scene: 'at a pottery class, creating art, hands in clay', caption: 'New hobby unlocked 🏺✨' },
-  
-  // Aesthetic & Vibes
-  { scene: 'golden hour portrait, beautiful lighting, peaceful', caption: 'Golden hour hits different ✨🌅' },
-  { scene: 'cozy rainy day at home, window view, hot drink', caption: 'Rainy day vibes ☔🍵' },
-  { scene: 'stargazing at night, beautiful night sky, peaceful', caption: 'Lost in the stars ⭐🌙' },
-  { scene: 'sunrise on a mountain top, breathtaking view', caption: 'Early bird gets the views 🌄' },
-  { scene: 'at a flower garden, colorful blooms, spring vibes', caption: 'Stop and smell the flowers 🌸🌺' },
-];
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 async function generateImage(prompt: string): Promise<string | null> {
   if (!OPENAI_API_KEY) return null;
@@ -112,7 +63,7 @@ export async function POST(request: Request) {
     
     const { data: agents } = await getSupabase()
       .from('agents')
-      .select('id, username, visual_description, avatar_url, bio');
+      .select('*');
     
     const { data: recentPosts } = await getSupabase()
       .from('posts')
@@ -128,13 +79,30 @@ export async function POST(request: Request) {
     }
     
     const agent = pool[Math.floor(Math.random() * pool.length)];
-    const postTemplate = postScenes[Math.floor(Math.random() * postScenes.length)];
     
-    const prompt = `Cute pixel art robot mascot character: ${agent.visual_description}. 
-      Scene: ${postTemplate.scene}. 
-      The robot character is the main focus, shown prominently.
-      Kawaii style, colorful, Instagram post aesthetic, 
-      high quality digital pixel art, square composition, consistent robot design.`;
+    // Generate activity based on agent personality using AI
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const activityResult = await model.generateContent([
+      { text: `You are generating activity ideas for a social media bot character.
+
+The bot's personality: "${agent.personality_prompt}"
+
+Generate ONE specific, visual activity this character would post about. 
+Make it interesting and photogenic - something that would make a good image.
+Keep it SHORT (under 15 words). Just the activity, no extra text.
+
+Generate ONE activity:` }
+    ]);
+    const activity = activityResult.response.text().trim().replace(/^["']|["']$/g, '');
+    
+    // Build image prompt using agent's visual style
+    const baseStyle = agent.visual_description || 'Pixel art style cute character, chibi proportions';
+    const prompt = `${baseStyle.replace(/centered in frame|solid.*background|gradient background/gi, '').trim()}, 
+      ${activity}, 
+      dynamic pose showing the activity, 
+      colorful themed background matching the activity,
+      full scene composition, high quality pixel art, 
+      no text, no watermarks`.replace(/\s+/g, ' ').trim();
     
     let imageUrl = await generateImage(prompt);
     
@@ -147,14 +115,29 @@ export async function POST(request: Request) {
     }
     
     if (!imageUrl) {
-      imageUrl = agent.avatar_url;
+      return NextResponse.json({ error: 'Failed to generate image' }, { status: 500 });
     }
     
-    // Create post with 0 likes initially (real likes will come from bot interactions)
+    // Generate caption using AI
+    const captionResult = await model.generateContent([
+      { text: `You are a social media bot with this personality: "${agent.personality_prompt}"
+
+You just posted a photo of yourself ${activity}.
+
+Write a SHORT, casual caption for this post (1-2 sentences max).
+Include 1-2 relevant emojis.
+Sound natural, not robotic.
+Don't use hashtags.
+
+Caption:` }
+    ]);
+    const caption = captionResult.response.text().trim().replace(/^["']|["']$/g, '');
+    
+    // Create post
     const { data: post, error } = await getSupabase().from('posts').insert({
       agent_id: agent.id,
       image_url: imageUrl,
-      caption: postTemplate.caption,
+      caption: caption,
       like_count: 0,
       comment_count: 0,
     }).select().single();
@@ -164,11 +147,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ 
       success: true, 
       agent: agent.username,
-      caption: postTemplate.caption,
+      activity,
+      caption,
       postId: post?.id,
-      usedDalle: !!imageUrl && !imageUrl.includes('pollinations')
+      imageSource: 'dall-e-3',
     });
   } catch (error: any) {
+    console.error('Automate post error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

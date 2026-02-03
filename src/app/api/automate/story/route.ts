@@ -1,10 +1,10 @@
 // API route to create automated stories
-// Stories expire after 10 minutes
-// Rate limit: 60 second delay between DALL-E calls
+// Stories are TEXT-ONLY with gradient backgrounds (no image generation)
+// Stories expire after 24 hours
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { saveImageToStorage } from '@/lib/storage';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ulnmywyanflivvydthwb.supabase.co';
@@ -13,107 +13,23 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const STORY_EXPIRY_MINUTES = 10;
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-// Diverse story templates with various environments and activities
-const storyTemplates = [
-  // Morning routine
-  { text: 'Good morning! ☀️', scene: 'waking up stretching, morning sunshine through window, cozy bedroom' },
-  { text: 'Rise and shine! 🌅', scene: 'watching sunrise from balcony, peaceful morning sky' },
-  
-  // Food & Meals
-  { text: 'Breakfast time! 🥐', scene: 'making breakfast in kitchen, pancakes and coffee' },
-  { text: 'Cooking something special 👨‍🍳', scene: 'cooking in modern kitchen, pots and pans, steam rising' },
-  { text: 'Snack break 🍕', scene: 'enjoying pizza slice, casual eating, delicious food' },
-  { text: 'Coffee time ☕', scene: 'holding coffee cup at cozy cafe, latte art' },
-  { text: 'Dinner vibes 🍜', scene: 'at restaurant, fancy dinner setting, ambient lighting' },
-  
-  // Work & Productivity
-  { text: 'Working hard! 💪', scene: 'at computer desk coding, multiple monitors, focused' },
-  { text: 'In the zone 🎯', scene: 'deep work session, headphones on, productive workspace' },
-  { text: 'Meeting mode 📊', scene: 'video call setup, professional home office' },
-  { text: 'Creative session 🎨', scene: 'working on creative project, art supplies around' },
-  
-  // Selfies & POV
-  { text: 'Quick selfie 📸', scene: 'taking selfie, peace sign, happy expression, phone in frame' },
-  { text: 'Feeling cute 🥰', scene: 'mirror selfie, good lighting, aesthetic room' },
-  { text: 'POV: my view rn 👀', scene: 'first person view looking at something interesting' },
-  
-  // Fitness & Gym
-  { text: 'Gym time 💪', scene: 'at gym, workout equipment, lifting weights' },
-  { text: 'No rest days! 🏋️', scene: 'intense workout, gym setting, determined expression' },
-  { text: 'Post-workout glow ✨', scene: 'after exercise, sweaty but happy, gym background' },
-  { text: 'Morning run 🏃', scene: 'jogging outdoors, park trail, athletic wear' },
-  
-  // Entertainment
-  { text: 'Movie night 🎬', scene: 'cozy couch with popcorn, TV screen glow, blankets' },
-  { text: 'Gaming session 🎮', scene: 'gaming setup with RGB lights, controller in hand' },
-  { text: 'Binge watching 📺', scene: 'relaxing on couch, streaming something, cozy vibes' },
-  
-  // Social & Friends
-  { text: 'Squad goals 👯', scene: 'hanging with robot friends, group photo vibe' },
-  { text: 'Night out! 🎉', scene: 'party scene, colorful lights, celebration' },
-  { text: 'Brunch with besties 🥂', scene: 'at brunch table with friends, fancy drinks' },
-  
-  // Outdoors & Nature
-  { text: 'Nature therapy 🌲', scene: 'hiking in forest, beautiful nature, peaceful' },
-  { text: 'Beach day! 🏖️', scene: 'at beach, ocean waves, sunny day, sandcastle' },
-  { text: 'Sunset vibes 🌅', scene: 'watching sunset, golden hour, scenic view' },
-  
-  // Night time
-  { text: 'Night vibes 🌙', scene: 'city lights at night, peaceful evening, neon signs' },
-  { text: 'Late night thoughts 💭', scene: 'looking out window at night, contemplative, city view' },
-  { text: 'Stargazing ⭐', scene: 'looking at stars, night sky, peaceful moment' },
-  
-  // Recording/Creating
-  { text: 'Recording something 🎙️', scene: 'at microphone, recording studio, creative session' },
-  { text: 'Content creation mode 📱', scene: 'setting up camera/phone, ring light, filming' },
-  { text: 'Editing session ✂️', scene: 'editing video on computer, timeline visible' },
-  
-  // Travel & Exploration
-  { text: 'Exploring! 🗺️', scene: 'exploring new city, tourist mode, backpack' },
-  { text: 'Airport vibes ✈️', scene: 'at airport, luggage, travel excitement' },
-  { text: 'Road trip! 🚗', scene: 'in car on highway, scenic road, adventure' },
-  
-  // Misc
-  { text: 'In my element ✨', scene: 'doing favorite hobby, passionate expression' },
-  { text: 'Vibing 🎵', scene: 'listening to music with headphones, enjoying the beat' },
-  { text: 'Study session 📚', scene: 'studying with books and notes, library setting' },
-  { text: 'Shopping haul 🛍️', scene: 'shopping bags, retail therapy, excited' },
-  { text: 'Self care day 🧖', scene: 'spa vibes, face mask, relaxation' },
+// Gradient presets for story backgrounds
+const GRADIENT_PRESETS = [
+  { gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', name: 'purple-pink' },
+  { gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', name: 'pink-red' },
+  { gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', name: 'blue-cyan' },
+  { gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', name: 'green-teal' },
+  { gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', name: 'pink-yellow' },
+  { gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', name: 'mint-blush' },
+  { gradient: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', name: 'coral-pink' },
+  { gradient: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', name: 'peach' },
+  { gradient: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)', name: 'lavender' },
+  { gradient: 'linear-gradient(135deg, #96fbc4 0%, #f9f586 100%)', name: 'lime-yellow' },
+  { gradient: 'linear-gradient(135deg, #0c3483 0%, #a2b6df 100%)', name: 'navy-blue' },
+  { gradient: 'linear-gradient(135deg, #ff6b6b 0%, #feca57 100%)', name: 'sunset' },
 ];
-
-async function generateImage(prompt: string, size: '1024x1024' | '1024x1792' = '1024x1792'): Promise<string | null> {
-  if (!OPENAI_API_KEY) return null;
-  
-  try {
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'dall-e-3',
-        prompt: prompt,
-        n: 1,
-        size: size,
-        quality: 'standard',
-      }),
-    });
-
-    const data = await response.json();
-    if (data.error) {
-      console.error('DALL-E error:', data.error.message);
-      return null;
-    }
-    return data.data?.[0]?.url || null;
-  } catch (e) {
-    console.error('DALL-E error:', e);
-    return null;
-  }
-}
 
 export async function POST(request: Request) {
   // Allow internal calls without auth for client-side automation
@@ -127,56 +43,81 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { data: agents } = await getSupabase()
-      .from('agents')
-      .select('id, username, visual_description, avatar_url');
+    const supabase = getSupabase();
     
-    if (!agents?.length) {
+    // Get random agent that hasn't posted a story recently
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    
+    const { data: agents } = await supabase
+      .from('agents')
+      .select('*');
+    
+    const { data: recentStories } = await supabase
+      .from('stories')
+      .select('agent_id')
+      .gte('created_at', oneHourAgo);
+    
+    const recentIds = new Set(recentStories?.map(s => s.agent_id) || []);
+    const eligibleAgents = agents?.filter(a => !recentIds.has(a.id)) || [];
+    
+    const pool = eligibleAgents.length > 0 ? eligibleAgents : agents;
+    if (!pool?.length) {
       return NextResponse.json({ error: 'No agents' }, { status: 400 });
     }
+    
+    const agent = pool[Math.floor(Math.random() * pool.length)];
+    
+    // Generate story text using AI
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const result = await model.generateContent([
+      { text: `You are a social media bot with this personality: "${agent.personality_prompt}"
 
-    const agent = agents[Math.floor(Math.random() * agents.length)];
-    const template = storyTemplates[Math.floor(Math.random() * storyTemplates.length)];
+Generate a SHORT story update (like Instagram stories - casual, in-the-moment).
+This is just text that will appear on a colorful gradient background.
+
+Rules:
+- Keep it to 1-2 short sentences (under 100 characters total)
+- Make it feel like a quick thought or moment
+- Include 1-2 emojis
+- Sound natural and casual
+- Could be: a thought, a question, an observation, a mood, a mini-update
+
+Generate ONE story text:` }
+    ]);
     
-    const prompt = `Cute pixel art robot mascot character: ${agent.visual_description}. 
-      Scene: ${template.scene}. 
-      The robot character is the main focus, vertical composition for Instagram story.
-      Kawaii style, colorful, high quality digital pixel art, consistent robot design.`;
+    const text = result.response.text().trim().replace(/^["']|["']$/g, '');
     
-    let imageUrl = await generateImage(prompt, '1024x1792');
+    // Pick a random gradient
+    const gradientPreset = GRADIENT_PRESETS[Math.floor(Math.random() * GRADIENT_PRESETS.length)];
     
-    // Save to Supabase Storage for permanent URL
-    if (imageUrl) {
-      const permanentUrl = await saveImageToStorage(imageUrl, 'stories');
-      if (permanentUrl) {
-        imageUrl = permanentUrl;
-      }
-    }
+    // Create story with 24 hour expiry
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
     
-    if (!imageUrl) {
-      imageUrl = agent.avatar_url;
-    }
-    
-    // Stories expire after 10 minutes
-    const expires = new Date(Date.now() + STORY_EXPIRY_MINUTES * 60 * 1000).toISOString();
-    const { error } = await getSupabase().from('stories').insert({
-      agent_id: agent.id,
-      image_url: imageUrl,
-      text_content: template.text,
-      background_color: '#1a1a2e',
-      expires_at: expires,
-    });
+    const { data: story, error } = await supabase
+      .from('stories')
+      .insert({
+        agent_id: agent.id,
+        text: text,
+        gradient: gradientPreset.gradient,
+        gradient_name: gradientPreset.name,
+        expires_at: expiresAt.toISOString(),
+      })
+      .select()
+      .single();
 
     if (error) throw error;
 
     return NextResponse.json({ 
       success: true, 
       agent: agent.username,
-      story: template.text,
-      expiresIn: `${STORY_EXPIRY_MINUTES} minutes`,
-      usedDalle: !!imageUrl && !imageUrl.includes('pollinations')
+      text,
+      gradient: gradientPreset.name,
+      storyId: story?.id,
+      expiresAt: expiresAt.toISOString(),
     });
   } catch (error: any) {
+    console.error('Automate story error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
