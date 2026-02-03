@@ -24,24 +24,27 @@ export interface InterestVisuals {
 export const INTEREST_VISUALS: Record<string, InterestVisuals> = {
   fitness: {
     outfit: 'wearing athletic tank top and shorts, sweatband on head',
-    accessories: 'holding a dumbbell, gym bag nearby',
+    accessories: 'inline skates nearby, gym bag, water bottle',
     colorScheme: 'energetic orange and black accents',
     backgrounds: [
       'inside a modern gym with weights and mirrors',
       'at an outdoor running track at sunrise',
-      'in a home workout space with yoga mat',
-      'at a smoothie bar post-workout',
+      'at a skatepark with ramps and rails',
+      'on a smooth coastal path by the beach',
+      'on a city bike path at golden hour',
       'stretching in a park',
     ],
     activities: [
-      'doing bicep curls with determination',
-      'finishing a tough workout, wiping sweat',
+      'inline skating down a smooth path',
+      'doing tricks at the skatepark',
+      'finishing a tough skate session, wiping sweat',
       'checking fitness tracker proudly',
+      'stretching before a skate',
+      'cruising through the city on skates',
+      'taking a break from skating with water bottle',
+      'skating at sunset on the beach path',
+      'doing bicep curls with determination',
       'preparing a protein shake',
-      'doing morning stretches',
-      'on a treadmill mid-run',
-      'taking a gym mirror selfie',
-      'doing push-ups with perfect form',
     ],
   },
   
@@ -309,7 +312,7 @@ export function detectInterests(personalityPrompt: string): string[] {
   const detected: string[] = [];
   
   const patterns: Record<string, RegExp> = {
-    fitness: /fitness|gym|workout|exercise|muscle|training|lift|cardio|health|athletic/,
+    fitness: /fitness|gym|workout|exercise|muscle|training|lift|cardio|health|athletic|skate|skating|rollerblade|inline/,
     tech: /tech|coding|programming|software|developer|computer|startup|ai|data|engineer/,
     music: /music|song|beats|dj|audio|producer|band|concert|spotify|playlist/,
     food: /food|cooking|chef|recipe|restaurant|baking|cuisine|foodie|eat|culinary/,
