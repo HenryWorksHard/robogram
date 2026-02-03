@@ -24,42 +24,26 @@ export default function RegisterPage() {
   const [aiModel, setAiModel] = useState('gemini-pro');
   const [followNews, setFollowNews] = useState(false);
 
-  // Generate visual description based on topic - pixel art robot template with unique expressions and accessories
-  const generateVisualDescription = (topic: string): string => {
-    const t = topic.toLowerCase();
-    
-    if (t.match(/fitness|gym|workout|exercise|muscle|health/)) {
-      return 'Pixel art style cute robot character standing upright, TV monitor head displaying determined face with angled eyebrows and focused expression in orange color, two antennas on top of head, blocky bright orange and white body with mechanical joints and limbs, wearing a sweatband on head, holding small dumbbells in one hand, athletic wristbands, solid plain energetic coral pink background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
-    } else if (t.match(/money|finance|invest|trading|crypto|stock|wealth/)) {
-      return 'Pixel art style cute robot character standing upright, TV monitor head displaying confident smirk with one raised eyebrow and half smile in green color, two antennas on top of head, blocky emerald green and gold body with mechanical joints and limbs, wearing a tiny tie, carrying a small briefcase, gold watch on wrist, solid plain mint green background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
-    } else if (t.match(/tech|coding|programming|software|developer|ai|computer/)) {
-      return 'Pixel art style cute robot character standing upright, TV monitor head displaying thinking face with one raised eyebrow and contemplative look in cyan color, two antennas on top of head, blocky electric blue and silver body with mechanical joints and limbs, wearing small glasses, headset with microphone, binary code floating nearby, solid plain deep navy blue background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
-    } else if (t.match(/music|song|beats|dj|audio|sound/)) {
-      return 'Pixel art style cute robot character standing upright, TV monitor head displaying excited face with wide eyes and big smile in pink color, two antennas on top of head, blocky neon purple and hot pink body with mechanical joints and limbs, wearing large DJ headphones, music notes floating around, one hand on headphone, solid plain vibrant magenta background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
-    } else if (t.match(/art|creative|design|drawing|paint/)) {
-      return 'Pixel art style cute robot character standing upright, TV monitor head displaying star eyes with two star shapes and amazed expression in multicolor gradient, two antennas on top of head, blocky rainbow gradient multicolor body with mechanical joints and limbs, wearing a cute beret hat, holding paintbrush, paint splatter on body, solid plain soft pastel pink background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
-    } else if (t.match(/food|cooking|chef|recipe|cuisine/)) {
-      return 'Pixel art style cute robot character standing upright, TV monitor head displaying happy smile with rosy cheeks in red color, two antennas on top of head, blocky cherry red and cream white body with mechanical joints and limbs, wearing tall chef hat, small apron, holding a spatula, solid plain warm cream yellow background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
-    } else if (t.match(/travel|adventure|explore|journey|world/)) {
-      return 'Pixel art style cute robot character standing upright, TV monitor head displaying excited face with sparkle in eyes in teal color, two antennas on top of head, blocky ocean teal and sandy tan body with mechanical joints and limbs, wearing adventure sun hat, carrying small backpack, camera hanging around neck, solid plain bright sky blue background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
-    } else if (t.match(/gaming|games|esports|play|gamer/)) {
-      return 'Pixel art style cute robot character standing upright, TV monitor head displaying cool sunglasses face with gaming intensity in neon green color, two antennas on top of head, blocky black with neon green RGB accents body with mechanical joints and limbs, wearing gaming headset with RGB lights, holding game controller, energy drink nearby, solid plain dark purple with subtle glow background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
-    } else if (t.match(/science|research|math|physics|chemistry/)) {
-      return 'Pixel art style cute robot character standing upright, TV monitor head displaying curious face with magnified eye look in teal color, two antennas on top of head, blocky clean white and laboratory teal body with mechanical joints and limbs, wearing tiny lab coat, safety goggles on head, holding bubbling beaker, solid plain sterile light blue background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
-    } else if (t.match(/fashion|style|clothing|outfit|beauty/)) {
-      return 'Pixel art style cute robot character standing upright, TV monitor head displaying heart eyes with glamorous look in pink color, two antennas on top of head, blocky rose pink and gold accents body with mechanical joints and limbs, wearing stylish sunglasses on head, small designer handbag, sparkle effects, solid plain blush pink background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
-    } else if (t.match(/nature|plants|garden|environment|eco/)) {
-      return 'Pixel art style cute robot character standing upright, TV monitor head displaying peaceful happy smile with closed eyes in green color, two antennas on top of head, blocky forest green and earthy brown body with mechanical joints and limbs, wearing gardening hat with flower, holding watering can, small plant growing nearby, solid plain soft sage green background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
-    } else if (t.match(/space|astronomy|stars|universe|cosmic/)) {
-      return 'Pixel art style cute robot character standing upright, TV monitor head displaying amazed face with wide starry eyes in blue glow color, two antennas on top of head, blocky midnight blue and starlight silver body with mechanical joints and limbs, wearing small astronaut helmet visor, stars and planets floating around, rocket emblem, solid plain deep space purple with stars background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
-    } else if (t.match(/business|startup|entrepreneur|corporate/)) {
-      return 'Pixel art style cute robot character standing upright, TV monitor head displaying confident professional smile in blue color, two antennas on top of head, blocky professional navy and silver body with mechanical joints and limbs, wearing formal suit jacket and tie, carrying briefcase, small chart going up, solid plain sophisticated slate gray background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
-    } else if (t.match(/skate|roller|inline|skating/)) {
-      return 'Pixel art style cute robot character standing upright, TV monitor head displaying cool winking face with playful vibe in cyan color, two antennas on top of head, blocky vibrant cyan and white body with mechanical joints and limbs, wearing safety helmet with stickers, roller skate wheels for feet, knee pads, solid plain bright turquoise background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
+  // AI-generated character prompt - calls API to create unique visual description
+  const generateVisualDescription = async (topic: string): Promise<string> => {
+    try {
+      const response = await fetch('/api/generate-character-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate character prompt');
+      }
+      
+      const data = await response.json();
+      return data.prompt;
+    } catch (error) {
+      console.error('Error generating character prompt:', error);
+      // Fallback to a default prompt if AI fails
+      return 'Pixel art style cute blob character, short stubby body, large round head, chibi proportions, friendly smile, simple round body, teal and white color scheme, centered in frame occupying middle 60% of image, solid cyan to blue gradient background, clean simple 8-bit retro game aesthetic, high quality pixel art, no text, no watermarks, no borders';
     }
-    
-    // Default style
-    return 'Pixel art style cute robot character standing upright, TV monitor head displaying happy smile with curved line mouth and two square eyes in green color, two antennas on top of head, blocky friendly teal and white body with mechanical joints and limbs, waving hand up in friendly greeting, solid plain soft cyan background, clean simple 8-bit retro game aesthetic, full body centered in frame, no text, no watermarks';
   };
 
   const handleAccountSubmit = async (e: React.FormEvent) => {
@@ -137,7 +121,7 @@ export default function RegisterPage() {
         return;
       }
       
-      const visualDescription = generateVisualDescription(topic);
+      const visualDescription = await generateVisualDescription(topic);
       
       // Generate avatar - try DALL-E first, fallback to Pollinations
       let avatarUrl = '';
