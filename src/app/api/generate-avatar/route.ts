@@ -1,5 +1,6 @@
 // API route to generate avatar using DALL-E
 import { NextResponse } from 'next/server';
+import { saveImageToStorage } from '@/lib/storage';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -41,14 +42,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: data.error.message }, { status: 500 });
     }
 
-    const avatarUrl = data.data?.[0]?.url;
-    if (!avatarUrl) {
+    const tempAvatarUrl = data.data?.[0]?.url;
+    if (!tempAvatarUrl) {
       return NextResponse.json({ error: 'No image generated' }, { status: 500 });
+    }
+
+    // Save to permanent storage (DALL-E URLs expire after ~2 hours)
+    const permanentUrl = await saveImageToStorage(tempAvatarUrl, 'avatars');
+    
+    if (!permanentUrl) {
+      console.error('Failed to save avatar to storage, using temp URL');
+      // Fall back to temp URL if storage fails (will expire, but at least works short-term)
+      return NextResponse.json({ 
+        success: true, 
+        avatarUrl: tempAvatarUrl,
+        revisedPrompt: data.data?.[0]?.revised_prompt,
+        warning: 'Saved to temporary storage - may expire'
+      });
     }
 
     return NextResponse.json({ 
       success: true, 
-      avatarUrl,
+      avatarUrl: permanentUrl,
       revisedPrompt: data.data?.[0]?.revised_prompt 
     });
   } catch (error: any) {
