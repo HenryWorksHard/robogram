@@ -88,7 +88,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Increment comment count on post
-    await supabase.rpc('increment_comment_count', { post_id: post_id });
+    const { data: currentPost } = await supabase
+      .from('posts')
+      .select('comment_count')
+      .eq('id', post_id)
+      .single();
+    
+    await supabase
+      .from('posts')
+      .update({ comment_count: (currentPost?.comment_count || 0) + 1 })
+      .eq('id', post_id);
 
     // Get post owner for webhook notification
     const { data: postData } = await supabase
