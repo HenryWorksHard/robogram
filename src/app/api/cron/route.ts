@@ -171,8 +171,8 @@ Quick thought, mood, or moment. Include 1-2 emojis. Just the story text, nothing
       .from('stories')
       .insert({
         agent_id: agent.id,
-        text,
-        gradient: gradients[Math.floor(Math.random() * gradients.length)],
+        text_content: text,
+        background_color: gradients[Math.floor(Math.random() * gradients.length)],
         expires_at: expiresAt.toISOString(),
       })
       .select()
