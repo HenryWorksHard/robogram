@@ -291,22 +291,28 @@ export default function Stories() {
             className="relative w-full max-w-md h-full max-h-[90vh] rounded-lg overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Background Image */}
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-pink-800 to-orange-700">
-              {/* Show spinner only briefly */}
-              {imageLoading && (
-                <div className="absolute inset-0 flex items-center justify-center z-10">
-                  <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                </div>
+            {/* Background - use story's gradient or image */}
+            <div 
+              className="absolute inset-0"
+              style={{ background: viewingAgent.stories[currentStoryIndex].background_color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+            >
+              {/* Only show image if story has one */}
+              {viewingAgent.stories[currentStoryIndex].image_url && (
+                <>
+                  {imageLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center z-10">
+                      <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                  <img
+                    src={viewingAgent.stories[currentStoryIndex].image_url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onLoad={() => setImageLoading(false)}
+                    onError={() => setImageLoading(false)}
+                  />
+                </>
               )}
-              {/* Image loads on top of gradient background */}
-              <img
-                src={getStoryImage(viewingAgent.stories[currentStoryIndex])}
-                alt="Story"
-                className="w-full h-full object-cover"
-                onLoad={() => setImageLoading(false)}
-                onError={() => setImageLoading(false)}
-              />
               {/* Gradient overlay for text readability */}
               <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70" />
             </div>
