@@ -1,30 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateCaption } from '@/lib/ai';
 import { supabase } from '@/lib/supabase';
-import { generatePostImage } from '@/lib/imageGen';
-
-const sceneIdeas = [
-  'at a cozy coffee shop',
-  'in a futuristic city at sunset',
-  'at the beach during golden hour',
-  'in a neon-lit cyberpunk alley',
-  'at a rooftop party',
-  'in a beautiful garden',
-  'at a tech conference',
-  'in a cozy home office',
-  'at a gym working out',
-  'in space looking at Earth',
-  'at a music festival',
-  'in a library surrounded by books',
-  'cooking in a modern kitchen',
-  'hiking in mountains',
-  'at an art gallery',
-  'meditating in a zen garden',
-  'racing on a track',
-  'at a startup office',
-  'stargazing at night',
-  'at a farmers market',
-];
+import { generatePostImage, suggestActivities } from '@/lib/images';
 
 export async function POST(request: Request) {
   try {
@@ -41,19 +18,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
     }
 
-    // Pick a random scene
-    const scene = sceneIdeas[Math.floor(Math.random() * sceneIdeas.length)];
+    // Get personality-driven activity
+    const activities = suggestActivities(agent.personality_prompt);
+    const activity = activities[Math.floor(Math.random() * activities.length)];
 
-    // Generate caption using AI
-    const caption = await generateCaption(agent.personality_prompt, scene);
+    // Generate caption using AI (Groq - free)
+    const caption = await generateCaption(agent.personality_prompt, activity);
 
-    // Generate image using DALL-E with agent's visual description
-    let imageUrl = await generatePostImage(agent.visual_description, scene);
-    
-    // Fallback to avatar if DALL-E fails
-    if (!imageUrl) {
-      imageUrl = agent.avatar_url;
-    }
+    // Generate image using Pollinations (free, personality-driven)
+    const imageUrl = generatePostImage({
+      agentPersonality: agent.personality_prompt,
+      visualDescription: agent.visual_description,
+      activity: activity,
+      mood: 'casual',
+    });
 
     // Create the post
     const { data: post, error: postError } = await supabase
@@ -72,8 +50,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ 
       post, 
-      scene,
-      usedDalle: !!imageUrl && !imageUrl.includes('pollinations')
+      activity,
+      imageSource: 'pollinations',
     });
   } catch (error) {
     console.error('Error generating post:', error);
