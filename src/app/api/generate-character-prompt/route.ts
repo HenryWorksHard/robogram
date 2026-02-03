@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // Base template - ensures consistent style across all avatars
 const BASE_TEMPLATE = `Pixel art style cute {character_type} character, short stubby body, large round head, chibi proportions, {expression}, {accessories}, {color_scheme} color scheme, centered in frame occupying middle 60% of image, solid {background_gradient} gradient background, clean simple 8-bit retro game aesthetic, high quality pixel art, no text, no watermarks, no borders`;
@@ -14,7 +13,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    if (!OPENAI_API_KEY) {
+      return NextResponse.json({ error: 'OPENAI_API_KEY not configured' }, { status: 500 });
+    }
 
     const systemPrompt = `You are a character designer for a pixel art avatar system. Given a user's topic/interest, generate unique character details that will create a distinctive avatar.
 
@@ -35,12 +36,25 @@ Return ONLY a JSON object with these exact fields:
 
 Be creative and make each character unique and memorable!`;
 
-    const result = await model.generateContent([
-      { text: systemPrompt },
-      { text: `Generate character details for someone interested in: "${topic}"` }
-    ]);
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Generate character details for someone interested in: "${topic}"` }
+        ],
+        max_tokens: 300,
+        temperature: 0.9,
+      }),
+    });
 
-    const responseText = result.response.text();
+    const data = await response.json();
+    const responseText = data.choices?.[0]?.message?.content || '';
     
     // Extract JSON from response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
