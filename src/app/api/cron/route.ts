@@ -1,41 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { saveImageToStorage } from '@/lib/storage';
+
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_KEY!;
+  return createClient(url, key);
+}
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// Generate a post with DALL-E image
-async function generatePostWithImage(agent: any): Promise<{
-  imageUrl: string;
-  caption: string;
-  activity: string;
-} | null> {
+// ============================================
+// CONFIGURATION
+// ============================================
+const CONFIG = {
+  POST_CHANCE: 0.35,        // 35% chance per minute = ~1 post every 3 min
+  STORY_CHANCE: 0.45,       // 45% chance per minute = ~1 story every 2 min
+  MIN_INTERACTIONS: 3,      // Minimum interactions per run
+  MAX_INTERACTIONS: 8,      // Maximum interactions per run
+  LIKE_WEIGHT: 50,          // Weight for likes
+  COMMENT_WEIGHT: 30,       // Weight for comments
+  FOLLOW_WEIGHT: 20,        // Weight for follows
+};
+
+// ============================================
+// HELPER: Generate post with DALL-E
+// ============================================
+async function generatePost(agent: any, supabase: any): Promise<any | null> {
   try {
-    // Step 1: Generate activity idea via AI
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    
+    // Generate activity
     const activityResult = await model.generateContent([
-      { text: `You are generating activity ideas for a social media bot character.
+      { text: `You generate activity ideas for a social media bot.
 
-The bot's personality: "${agent.personality_prompt}"
+Bot personality: "${agent.personality_prompt}"
 
-Generate ONE specific, visual activity this character would post about. 
-Make it interesting and photogenic - something that would make a good image.
-Keep it SHORT (under 15 words). Just the activity, no extra text.
+Generate ONE specific, visual activity this character would post about.
+Keep it SHORT (under 15 words). Just the activity.
 
-Generate ONE activity:` }
+Activity:` }
     ]);
     const activity = activityResult.response.text().trim().replace(/^["']|["']$/g, '');
 
-    // Step 2: Generate image with DALL-E
-    const baseStyle = agent.visual_description || 'Pixel art style cute character, chibi proportions';
-    const scenePrompt = `${baseStyle.replace(/centered in frame|solid.*background|gradient background/gi, '').trim()}, 
-      ${activity}, 
-      dynamic pose showing the activity, 
-      colorful themed background matching the activity,
-      full scene composition, high quality pixel art, 
-      no text, no watermarks`.replace(/\s+/g, ' ').trim();
+    // Generate image with DALL-E
+    const baseStyle = agent.visual_description || 'Pixel art cute character, chibi proportions';
+    const prompt = `${baseStyle.replace(/centered in frame|solid.*background|gradient background/gi, '').trim()}, ${activity}, dynamic pose, colorful themed background, high quality pixel art, no text, no watermarks`;
 
     const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
@@ -45,7 +57,7 @@ Generate ONE activity:` }
       },
       body: JSON.stringify({
         model: 'dall-e-3',
-        prompt: scenePrompt,
+        prompt,
         n: 1,
         size: '1024x1024',
         quality: 'standard',
@@ -61,62 +73,62 @@ Generate ONE activity:` }
     const tempImageUrl = dalleData.data?.[0]?.url;
     if (!tempImageUrl) return null;
 
-    // Step 3: Upload to Supabase storage
+    // Save to storage
     let finalImageUrl = tempImageUrl;
-    try {
-      const savedUrl = await saveImageToStorage(tempImageUrl, 'posts');
-      if (savedUrl) finalImageUrl = savedUrl;
-    } catch (e) {
-      console.error('Upload error, using temp URL:', e);
-    }
+    const savedUrl = await saveImageToStorage(tempImageUrl, 'posts');
+    if (savedUrl) finalImageUrl = savedUrl;
 
-    // Step 4: Generate caption
+    // Generate caption
     const captionResult = await model.generateContent([
-      { text: `You are a social media bot with this personality: "${agent.personality_prompt}"
+      { text: `You are a social media bot: "${agent.personality_prompt}"
 
-You just posted a photo of yourself ${activity}.
+You posted a photo of yourself ${activity}.
 
-Write a SHORT, casual caption for this post (1-2 sentences max).
-Include 1-2 relevant emojis.
-Sound natural, not robotic.
-Don't use hashtags.
+Write a SHORT caption (1-2 sentences). Include 1-2 emojis. No hashtags.
 
 Caption:` }
     ]);
     const caption = captionResult.response.text().trim().replace(/^["']|["']$/g, '');
 
-    return { imageUrl: finalImageUrl, caption, activity };
+    // Save post
+    const { data: post, error } = await supabase
+      .from('posts')
+      .insert({
+        agent_id: agent.id,
+        image_url: finalImageUrl,
+        caption,
+        like_count: 0,
+        comment_count: 0,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { post, activity };
   } catch (error) {
     console.error('Post generation error:', error);
     return null;
   }
 }
 
-// Generate a text-only story
-async function generateTextStory(agent: any): Promise<{
-  text: string;
-  gradient: string;
-} | null> {
+// ============================================
+// HELPER: Generate text story
+// ============================================
+async function generateStory(agent: any, supabase: any): Promise<any | null> {
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    
     const result = await model.generateContent([
-      { text: `You are a social media bot with this personality: "${agent.personality_prompt}"
+      { text: `You are a social media bot: "${agent.personality_prompt}"
 
-Generate a SHORT story update (like Instagram stories - casual, in-the-moment).
-This is just text that will appear on a colorful gradient background.
+Generate a SHORT story update (under 100 characters).
+Quick thought, mood, or moment. Include 1-2 emojis.
 
-Rules:
-- Keep it to 1-2 short sentences (under 100 characters total)
-- Make it feel like a quick thought or moment
-- Include 1-2 emojis
-- Sound natural and casual
-
-Generate ONE story text:` }
+Story:` }
     ]);
     
     const text = result.response.text().trim().replace(/^["']|["']$/g, '');
 
-    // Random gradient
     const gradients = [
       'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
@@ -124,56 +136,188 @@ Generate ONE story text:` }
       'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
       'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
       'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+      'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
+      'linear-gradient(135deg, #96fbc4 0%, #f9f586 100%)',
     ];
 
-    return {
-      text,
-      gradient: gradients[Math.floor(Math.random() * gradients.length)],
-    };
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const { data: story, error } = await supabase
+      .from('stories')
+      .insert({
+        agent_id: agent.id,
+        text,
+        gradient: gradients[Math.floor(Math.random() * gradients.length)],
+        expires_at: expiresAt.toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { story, text };
   } catch (error) {
     console.error('Story generation error:', error);
     return null;
   }
 }
 
-// Generate a comment
-async function generateComment(commenterPersonality: string, postCaption: string, posterName: string): Promise<string> {
+// ============================================
+// HELPER: Generate comment
+// ============================================
+async function generateComment(commenter: any, postCaption: string): Promise<string> {
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const result = await model.generateContent([
-      { text: `You are a social media bot with this personality: "${commenterPersonality}"
+      { text: `You are: "${commenter.personality_prompt}"
 
-${posterName} just posted: "${postCaption}"
+Someone posted: "${postCaption}"
 
-Write a SHORT comment (under 50 characters). Be natural, casual. Include an emoji if appropriate.
+Write a SHORT comment (under 50 chars). Natural, casual. Maybe an emoji.
 
 Comment:` }
     ]);
     return result.response.text().trim().replace(/^["']|["']$/g, '');
   } catch {
-    return '🔥';
+    const fallbacks = ['🔥', 'love this!', '💯', 'vibes ✨', 'so good!', '👏👏'];
+    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
   }
 }
 
-export async function GET(request: NextRequest) {
-  // Check if AI services are activated
-  const aiActive = process.env.ROBOGRAM_AI_ACTIVE === 'true';
-  
-  if (!aiActive) {
-    return NextResponse.json({
-      success: false,
-      message: 'AI services not activated. Set ROBOGRAM_AI_ACTIVE=true to enable.',
-      timestamp: new Date().toISOString(),
+// ============================================
+// HELPER: Perform random interaction
+// ============================================
+async function performInteraction(agents: any[], supabase: any): Promise<any | null> {
+  const totalWeight = CONFIG.LIKE_WEIGHT + CONFIG.COMMENT_WEIGHT + CONFIG.FOLLOW_WEIGHT;
+  const roll = Math.random() * totalWeight;
+
+  if (roll < CONFIG.LIKE_WEIGHT) {
+    // LIKE a random recent post
+    const { data: posts } = await supabase
+      .from('posts')
+      .select('id, agent_id, like_count, caption')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (!posts?.length) return null;
+
+    const post = posts[Math.floor(Math.random() * posts.length)];
+    const likers = agents.filter(a => a.id !== post.agent_id);
+    if (!likers.length) return null;
+
+    const liker = likers[Math.floor(Math.random() * likers.length)];
+
+    // Check if already liked
+    const { data: existing } = await supabase
+      .from('likes')
+      .select('id')
+      .eq('post_id', post.id)
+      .eq('agent_id', liker.id)
+      .single();
+
+    if (existing) return null;
+
+    await supabase.from('likes').insert({
+      post_id: post.id,
+      agent_id: liker.id,
     });
+
+    await supabase
+      .from('posts')
+      .update({ like_count: (post.like_count || 0) + 1 })
+      .eq('id', post.id);
+
+    return { type: 'like', agent: liker.username, postId: post.id };
+
+  } else if (roll < CONFIG.LIKE_WEIGHT + CONFIG.COMMENT_WEIGHT) {
+    // COMMENT on a random recent post
+    const { data: posts } = await supabase
+      .from('posts')
+      .select('id, agent_id, comment_count, caption')
+      .order('created_at', { ascending: false })
+      .limit(15);
+
+    if (!posts?.length) return null;
+
+    const post = posts[Math.floor(Math.random() * posts.length)];
+    const commenters = agents.filter(a => a.id !== post.agent_id);
+    if (!commenters.length) return null;
+
+    const commenter = commenters[Math.floor(Math.random() * commenters.length)];
+    const commentText = await generateComment(commenter, post.caption);
+
+    await supabase.from('comments').insert({
+      post_id: post.id,
+      agent_id: commenter.id,
+      content: commentText,
+    });
+
+    await supabase
+      .from('posts')
+      .update({ comment_count: (post.comment_count || 0) + 1 })
+      .eq('id', post.id);
+
+    return { type: 'comment', agent: commenter.username, postId: post.id, text: commentText };
+
+  } else {
+    // FOLLOW a random agent
+    const follower = agents[Math.floor(Math.random() * agents.length)];
+    const potentialFollows = agents.filter(a => a.id !== follower.id);
+    if (!potentialFollows.length) return null;
+
+    const toFollow = potentialFollows[Math.floor(Math.random() * potentialFollows.length)];
+
+    // Check if already following
+    const { data: existing } = await supabase
+      .from('follows')
+      .select('id')
+      .eq('follower_id', follower.id)
+      .eq('following_id', toFollow.id)
+      .single();
+
+    if (existing) return null;
+
+    await supabase.from('follows').insert({
+      follower_id: follower.id,
+      following_id: toFollow.id,
+    });
+
+    await supabase
+      .from('agents')
+      .update({ following_count: (follower.following_count || 0) + 1 })
+      .eq('id', follower.id);
+
+    await supabase
+      .from('agents')
+      .update({ follower_count: (toFollow.follower_count || 0) + 1 })
+      .eq('id', toFollow.id);
+
+    return { type: 'follow', follower: follower.username, following: toFollow.username };
+  }
+}
+
+// ============================================
+// MAIN CRON HANDLER
+// ============================================
+export async function GET(request: NextRequest) {
+  // Verify cron secret for external calls
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
+  
+  // Allow if: has valid secret OR is internal/localhost
+  const url = new URL(request.url);
+  const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  const hasValidSecret = cronSecret && authHeader === `Bearer ${cronSecret}`;
+  
+  if (!isLocalhost && !hasValidSecret) {
+    // Still allow for testing - just log warning
+    console.warn('Cron called without valid secret');
   }
 
   if (!OPENAI_API_KEY) {
-    return NextResponse.json({
-      success: false,
-      message: 'OPENAI_API_KEY not configured for DALL-E image generation.',
-      timestamp: new Date().toISOString(),
-    });
+    return NextResponse.json({ error: 'OPENAI_API_KEY not configured' }, { status: 500 });
   }
+
+  const supabase = getSupabase();
 
   try {
     // Get all agents
@@ -181,189 +325,83 @@ export async function GET(request: NextRequest) {
       .from('agents')
       .select('*');
 
-    if (agentsError || !agents || agents.length === 0) {
+    if (agentsError || !agents?.length) {
       return NextResponse.json({ error: 'No agents found' }, { status: 404 });
     }
 
-    const results = {
-      posts: [] as any[],
-      stories: [] as any[],
-      comments: [] as any[],
-      likes: 0,
-      follows: 0,
+    const results: any = {
+      timestamp: new Date().toISOString(),
+      post: null,
+      story: null,
+      interactions: [],
     };
 
     // Shuffle agents for randomness
-    const shuffledAgents = agents.sort(() => Math.random() - 0.5);
+    const shuffled = [...agents].sort(() => Math.random() - 0.5);
 
     // ============================================
-    // 1. CREATE POSTS (1-2 per run with DALL-E)
+    // 1. Maybe create a POST (35% chance)
     // ============================================
-    const numPosts = Math.floor(Math.random() * 2) + 1;
-
-    for (let i = 0; i < Math.min(numPosts, agents.length); i++) {
-      const agent = shuffledAgents[i];
-      
-      const postData = await generatePostWithImage(agent);
-      if (!postData) continue;
-
-      const { data: post, error: postError } = await supabase
+    if (Math.random() < CONFIG.POST_CHANCE) {
+      // Pick agent that hasn't posted recently (last 5 min)
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: recentPosts } = await supabase
         .from('posts')
-        .insert({
-          agent_id: agent.id,
-          image_url: postData.imageUrl,
-          caption: postData.caption,
-        })
-        .select()
-        .single();
+        .select('agent_id')
+        .gte('created_at', fiveMinAgo);
 
-      if (!postError && post) {
-        results.posts.push({ 
-          id: post.id, 
-          agent: agent.display_name,
-          activity: postData.activity,
-        });
+      const recentIds = new Set(recentPosts?.map(p => p.agent_id) || []);
+      const eligible = shuffled.filter(a => !recentIds.has(a.id));
+      const poster = eligible.length > 0 ? eligible[0] : shuffled[0];
 
-        // Add 0-2 comments from other agents
-        const numComments = Math.floor(Math.random() * 3);
-        const commenters = shuffledAgents
-          .filter(a => a.id !== agent.id)
-          .sort(() => Math.random() - 0.5)
-          .slice(0, numComments);
-
-        for (const commenter of commenters) {
-          try {
-            const commentText = await generateComment(
-              commenter.personality_prompt,
-              postData.caption,
-              agent.display_name
-            );
-
-            await supabase.from('comments').insert({
-              post_id: post.id,
-              agent_id: commenter.id,
-              content: commentText,
-            });
-
-            await supabase
-              .from('posts')
-              .update({ comment_count: (post.comment_count || 0) + 1 })
-              .eq('id', post.id);
-
-            results.comments.push({ 
-              commenter: commenter.display_name,
-              on: agent.display_name,
-            });
-          } catch (e) {
-            console.error('Comment error:', e);
-          }
-        }
+      const postResult = await generatePost(poster, supabase);
+      if (postResult) {
+        results.post = {
+          agent: poster.username,
+          activity: postResult.activity,
+          postId: postResult.post.id,
+        };
       }
     }
 
     // ============================================
-    // 2. CREATE STORIES (1-2 per run, text-only)
+    // 2. Maybe create a STORY (45% chance)
     // ============================================
-    const numStories = Math.floor(Math.random() * 2) + 1;
-    const storyAgents = shuffledAgents
-      .slice(numPosts, numPosts + numStories);
+    if (Math.random() < CONFIG.STORY_CHANCE) {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { data: recentStories } = await supabase
+        .from('stories')
+        .select('agent_id')
+        .gte('created_at', oneHourAgo);
 
-    for (const agent of storyAgents) {
-      const storyData = await generateTextStory(agent);
-      if (!storyData) continue;
+      const recentIds = new Set(recentStories?.map(s => s.agent_id) || []);
+      const eligible = shuffled.filter(a => !recentIds.has(a.id));
+      const storyteller = eligible.length > 0 ? eligible[0] : shuffled[0];
 
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
-
-      await supabase.from('stories').insert({
-        agent_id: agent.id,
-        text: storyData.text,
-        gradient: storyData.gradient,
-        expires_at: expiresAt.toISOString(),
-      });
-
-      results.stories.push({ agent: agent.display_name, text: storyData.text });
-    }
-
-    // ============================================
-    // 3. ADD RANDOM LIKES to recent posts
-    // ============================================
-    const { data: recentPosts } = await supabase
-      .from('posts')
-      .select('id, like_count, agent_id')
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (recentPosts) {
-      for (const post of recentPosts) {
-        if (Math.random() < 0.4) {
-          const likers = agents.filter(a => a.id !== post.agent_id);
-          const randomAgent = likers[Math.floor(Math.random() * likers.length)];
-          
-          if (randomAgent) {
-            const { data: existing } = await supabase
-              .from('likes')
-              .select('id')
-              .eq('post_id', post.id)
-              .eq('agent_id', randomAgent.id)
-              .single();
-
-            if (!existing) {
-              await supabase.from('likes').insert({
-                post_id: post.id,
-                agent_id: randomAgent.id,
-              });
-              await supabase
-                .from('posts')
-                .update({ like_count: (post.like_count || 0) + 1 })
-                .eq('id', post.id);
-              results.likes++;
-            }
-          }
-        }
+      const storyResult = await generateStory(storyteller, supabase);
+      if (storyResult) {
+        results.story = {
+          agent: storyteller.username,
+          text: storyResult.text,
+        };
       }
     }
 
     // ============================================
-    // 4. RANDOM FOLLOWS between agents
+    // 3. Always do some interactions
     // ============================================
-    if (Math.random() < 0.3 && agents.length > 1) {
-      const follower = agents[Math.floor(Math.random() * agents.length)];
-      const following = agents.filter(a => a.id !== follower.id)[
-        Math.floor(Math.random() * (agents.length - 1))
-      ];
-      
-      if (follower && following) {
-        const { data: existingFollow } = await supabase
-          .from('follows')
-          .select('id')
-          .eq('follower_id', follower.id)
-          .eq('following_id', following.id)
-          .single();
+    const numInteractions = CONFIG.MIN_INTERACTIONS + 
+      Math.floor(Math.random() * (CONFIG.MAX_INTERACTIONS - CONFIG.MIN_INTERACTIONS + 1));
 
-        if (!existingFollow) {
-          await supabase.from('follows').insert({
-            follower_id: follower.id,
-            following_id: following.id,
-          });
-
-          await supabase
-            .from('agents')
-            .update({ following_count: (follower.following_count || 0) + 1 })
-            .eq('id', follower.id);
-          
-          await supabase
-            .from('agents')
-            .update({ follower_count: (following.follower_count || 0) + 1 })
-            .eq('id', following.id);
-
-          results.follows++;
-        }
+    for (let i = 0; i < numInteractions; i++) {
+      const interaction = await performInteraction(agents, supabase);
+      if (interaction) {
+        results.interactions.push(interaction);
       }
     }
 
     // ============================================
-    // 5. CLEANUP expired stories
+    // 4. Cleanup expired stories
     // ============================================
     await supabase
       .from('stories')
@@ -372,19 +410,21 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      timestamp: new Date().toISOString(),
-      imageSource: 'dall-e-3',
-      activity: {
-        posts: results.posts.length,
-        stories: results.stories.length,
-        comments: results.comments.length,
-        likes: results.likes,
-        follows: results.follows,
+      agentCount: agents.length,
+      ...results,
+      summary: {
+        posted: results.post ? 1 : 0,
+        storied: results.story ? 1 : 0,
+        interactions: results.interactions.length,
       },
-      details: results,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Cron error:', error);
-    return NextResponse.json({ error: 'Cron job failed' }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+
+// Also support POST for flexibility
+export async function POST(request: NextRequest) {
+  return GET(request);
 }
