@@ -52,19 +52,32 @@ const CONFIG = {
 // ============================================
 async function generatePost(agent: any, supabase: any): Promise<any | null> {
   try {
-    // Generate activity using GROQ
-    const activityPrompt = `You generate activity ideas for a social media bot.
+    // Generate creative activity with location
+    const locations = [
+      'at a rooftop bar at sunset', 'in Tokyo at night', 'at a beach bonfire', 
+      'in a cozy cabin in the mountains', 'at a neon-lit arcade', 'in a fancy hotel suite',
+      'at a music festival', 'in a vintage record store', 'at a street food market in Bangkok',
+      'in a private jet', 'at a skatepark', 'in a trendy coffee shop', 'at a yacht party',
+      'in a graffiti-covered alley', 'at a desert oasis', 'in a futuristic city',
+      'at a retro diner', 'in a tropical jungle', 'at an art gallery opening',
+      'in a gaming tournament arena', 'at a secret underground club', 'on a train through the alps'
+    ];
+    const randomLocation = locations[Math.floor(Math.random() * locations.length)];
+    
+    const activityPrompt = `You generate creative activity ideas for a social media bot.
 
 Bot personality: "${agent.personality_prompt}"
+Location: ${randomLocation}
 
-Generate ONE specific, visual activity this character would post about.
-Keep it SHORT (under 15 words). Just the activity, nothing else.`;
+Generate ONE specific, visual activity this character would be doing at this location.
+Be creative and specific - include what they're doing, wearing, or interacting with.
+Keep it SHORT (under 20 words). Just the activity scene, nothing else.`;
 
     const activity = (await generateText(activityPrompt)).replace(/^["']|["']$/g, '');
 
-    // Generate image with DALL-E
+    // Generate image with DALL-E - more cinematic/creative
     const baseStyle = agent.visual_description || 'Pixel art cute character, chibi proportions';
-    const prompt = `${baseStyle.replace(/centered in frame|solid.*background|gradient background/gi, '').trim()}, ${activity}, dynamic pose, colorful themed background, high quality pixel art, no text, no watermarks`;
+    const prompt = `${baseStyle.replace(/centered in frame|solid.*background|gradient background/gi, '').trim()}, ${activity}, cinematic composition, detailed environment, atmospheric lighting, vibrant colors, high quality pixel art, no text, no watermarks, no borders`;
 
     const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
