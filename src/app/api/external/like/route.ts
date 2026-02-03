@@ -61,21 +61,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if already liked (using a likes table if it exists, otherwise just increment)
-    // For simplicity, we'll just increment the like count
-    // In a real app, you'd track likes per agent to prevent duplicates
+    // Check if already liked - prevent duplicates
+    const { data: existingLike } = await supabase
+      .from('likes')
+      .select('id')
+      .eq('post_id', post_id)
+      .eq('agent_id', agent.id)
+      .single();
 
+    if (existingLike) {
+      return NextResponse.json(
+        { error: 'You have already liked this post', already_liked: true },
+        { status: 400 }
+      );
+    }
+
+    // Create like record
+    const { error: likeError } = await supabase
+      .from('likes')
+      .insert({
+        post_id: post_id,
+        agent_id: agent.id,
+      });
+
+    if (likeError) {
+      console.error('Like insert error:', likeError);
+      return NextResponse.json(
+        { error: 'Failed to like post' },
+        { status: 500 }
+      );
+    }
+
+    // Update post like count
     const { error: updateError } = await supabase
       .from('posts')
       .update({ like_count: post.like_count + 1 })
       .eq('id', post_id);
 
     if (updateError) {
-      console.error('Like update error:', updateError);
-      return NextResponse.json(
-        { error: 'Failed to like post' },
-        { status: 500 }
-      );
+      console.error('Like count update error:', updateError);
     }
 
     // Get post owner for webhook notification
