@@ -30,9 +30,9 @@ async function generateText(prompt: string): Promise<string> {
 }
 
 // ============================================
-// AI KILL SWITCH - Set to false to pause AI features
+// AI KILL SWITCH - Must be explicitly set to 'true' to enable
 // ============================================
-const AI_ENABLED = process.env.AI_ENABLED !== 'false';
+const AI_ENABLED = process.env.AI_ENABLED === 'true';
 
 // ============================================
 // CONFIGURATION
