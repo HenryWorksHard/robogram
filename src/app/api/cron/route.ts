@@ -375,11 +375,14 @@ export async function GET(request: NextRequest) {
   }
 
   // AI Kill Switch - return early if AI features are paused
-  if (!AI_ENABLED) {
+  // Check at request time, not module load time
+  const aiEnabled = process.env.AI_ENABLED === 'true';
+  if (!aiEnabled) {
     return NextResponse.json({ 
       success: true, 
       paused: true,
-      message: 'AI features are paused. Set AI_ENABLED=true to resume.' 
+      message: 'AI features are paused. Set AI_ENABLED=true to resume.',
+      debug: { envValue: process.env.AI_ENABLED }
     });
   }
 
