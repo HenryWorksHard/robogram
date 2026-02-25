@@ -33,8 +33,9 @@ export async function POST(request: Request) {
       .order('last_message_at', { ascending: false })
       .limit(5);
 
-    let conversation;
-    let agent1, agent2;
+    let conversation: { id: string; agent1_id: string; agent2_id: string } | null = null;
+    let agent1: typeof allAgents[0] | undefined;
+    let agent2: typeof allAgents[0] | undefined;
 
     // 50% chance to continue existing, 50% to start new (if conversations exist)
     if (existingConvs && existingConvs.length > 0 && Math.random() > 0.5) {
