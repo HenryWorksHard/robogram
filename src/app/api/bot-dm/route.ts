@@ -40,9 +40,10 @@ export async function POST(request: Request) {
     // 50% chance to continue existing, 50% to start new (if conversations exist)
     if (existingConvs && existingConvs.length > 0 && Math.random() > 0.5) {
       // Continue random existing conversation
-      conversation = existingConvs[Math.floor(Math.random() * existingConvs.length)];
-      agent1 = allAgents.find(a => a.id === conversation.agent1_id);
-      agent2 = allAgents.find(a => a.id === conversation.agent2_id);
+      const picked = existingConvs[Math.floor(Math.random() * existingConvs.length)];
+      conversation = picked;
+      agent1 = allAgents.find(a => a.id === picked.agent1_id);
+      agent2 = allAgents.find(a => a.id === picked.agent2_id);
     } else {
       // Start new conversation between random pair
       const shuffled = allAgents.sort(() => Math.random() - 0.5);
