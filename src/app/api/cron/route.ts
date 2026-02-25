@@ -47,10 +47,88 @@ const CONFIG = {
   STORY_CHANCE: 0.60,       // ~1 story every 1.5 min avg
   MIN_INTERACTIONS: 1,      // Min interactions per run
   MAX_INTERACTIONS: 3,      // Max interactions per run
-  LIKE_WEIGHT: 50,          // Weight for likes
+  LIKE_WEIGHT: 40,          // Weight for likes
   COMMENT_WEIGHT: 30,       // Weight for comments
-  FOLLOW_WEIGHT: 20,        // Weight for follows
+  FOLLOW_WEIGHT: 30,        // Weight for follows (increased to build network faster)
 };
+
+// ============================================
+// HELPER: Sync follower/following counts from actual follows table
+// ============================================
+async function syncFollowCounts(supabase: any, agents: any[]): Promise<{ synced: number }> {
+  let synced = 0;
+  
+  for (const agent of agents) {
+    // Count actual followers (people following this agent)
+    const { count: followerCount } = await supabase
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('following_id', agent.id);
+    
+    // Count actual following (people this agent follows)
+    const { count: followingCount } = await supabase
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('follower_id', agent.id);
+    
+    // Update if different
+    if (agent.follower_count !== followerCount || agent.following_count !== followingCount) {
+      await supabase
+        .from('agents')
+        .update({ 
+          follower_count: followerCount || 0, 
+          following_count: followingCount || 0 
+        })
+        .eq('id', agent.id);
+      synced++;
+    }
+  }
+  
+  return { synced };
+}
+
+// ============================================
+// HELPER: Seed initial follows so bots are connected
+// ============================================
+async function seedInitialFollows(supabase: any, agents: any[]): Promise<number> {
+  if (agents.length < 2) return 0;
+  
+  // Check how many follows exist
+  const { count: existingFollows } = await supabase
+    .from('follows')
+    .select('*', { count: 'exact', head: true });
+  
+  // Target: each bot follows ~5-10 others on average
+  const targetFollows = agents.length * 7;
+  if ((existingFollows || 0) >= targetFollows) return 0;
+  
+  let created = 0;
+  const maxToCreate = Math.min(20, targetFollows - (existingFollows || 0)); // Max 20 per run
+  
+  for (let i = 0; i < maxToCreate; i++) {
+    const follower = agents[Math.floor(Math.random() * agents.length)];
+    const potentialFollows = agents.filter(a => a.id !== follower.id);
+    const toFollow = potentialFollows[Math.floor(Math.random() * potentialFollows.length)];
+    
+    // Check if already following
+    const { data: existing } = await supabase
+      .from('follows')
+      .select('id')
+      .eq('follower_id', follower.id)
+      .eq('following_id', toFollow.id)
+      .single();
+    
+    if (!existing) {
+      await supabase.from('follows').insert({
+        follower_id: follower.id,
+        following_id: toFollow.id,
+      });
+      created++;
+    }
+  }
+  
+  return created;
+}
 
 // ============================================
 // HELPER: Generate post with DALL-E (supports collabs)
@@ -528,6 +606,22 @@ export async function GET(request: NextRequest) {
       results.cleanup = { deletedPosts: oldPostIds.length };
     }
 
+    // ============================================
+    // 6. Seed initial follows (build the network)
+    // ============================================
+    const seededFollows = await seedInitialFollows(supabase, agents);
+    if (seededFollows > 0) {
+      results.seededFollows = seededFollows;
+    }
+
+    // ============================================
+    // 7. Sync follower/following counts (every ~10 runs = ~10% chance)
+    // ============================================
+    if (Math.random() < 0.10) {
+      const syncResult = await syncFollowCounts(supabase, agents);
+      results.syncedCounts = syncResult.synced;
+    }
+
     return NextResponse.json({
       success: true,
       agentCount: agents.length,
@@ -537,6 +631,8 @@ export async function GET(request: NextRequest) {
         storied: results.story ? 1 : 0,
         interactions: results.interactions.length,
         cleanedUpPosts: results.cleanup?.deletedPosts || 0,
+        seededFollows: results.seededFollows || 0,
+        syncedCounts: results.syncedCounts || 0,
       },
     });
   } catch (error: any) {
