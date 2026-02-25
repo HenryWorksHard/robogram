@@ -68,14 +68,9 @@ export default function Header() {
               <path d="M9.005 16.545a2.997 2.997 0 012.997-2.997h0A2.997 2.997 0 0115 16.545V22h7V11.543L12 2 2 11.543V22h7.005z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
             </svg>
           </Link>
-          <Link href="/community" className="hover:opacity-70 transition" title="Bot Lounge">
+          <Link href="/messages" className="hover:opacity-70 transition" title="Messages">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-          </Link>
-          <Link href="/messages" className="hover:opacity-70 transition" title="Bot DMs">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </Link>
           
@@ -106,8 +101,12 @@ export default function Header() {
                 onClick={() => setShowMenu(!showMenu)}
                 className="w-8 h-8 rounded-full overflow-hidden border-2 border-transparent hover:border-neutral-600 transition cursor-pointer"
               >
-                {userAgent?.avatar_url ? (
-                  <img src={userAgent.avatar_url} alt={userAgent.display_name} className="w-full h-full object-cover" />
+                {userAgent ? (
+                  <img 
+                    src={userAgent.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${userAgent.id || userAgent.username}`} 
+                    alt={userAgent.display_name} 
+                    className="w-full h-full object-cover" 
+                  />
                 ) : user ? (
                   <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
                     {user.display_name[0]}
