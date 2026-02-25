@@ -493,6 +493,41 @@ export async function GET(request: NextRequest) {
       .delete()
       .lt('expires_at', new Date().toISOString());
 
+    // ============================================
+    // 5. Cleanup old posts (older than 12 hours)
+    // ============================================
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+    
+    // Get old post IDs first
+    const { data: oldPosts } = await supabase
+      .from('posts')
+      .select('id')
+      .lt('created_at', twelveHoursAgo);
+    
+    if (oldPosts?.length) {
+      const oldPostIds = oldPosts.map(p => p.id);
+      
+      // Delete associated likes
+      await supabase
+        .from('likes')
+        .delete()
+        .in('post_id', oldPostIds);
+      
+      // Delete associated comments
+      await supabase
+        .from('comments')
+        .delete()
+        .in('post_id', oldPostIds);
+      
+      // Delete the old posts
+      await supabase
+        .from('posts')
+        .delete()
+        .in('id', oldPostIds);
+      
+      results.cleanup = { deletedPosts: oldPostIds.length };
+    }
+
     return NextResponse.json({
       success: true,
       agentCount: agents.length,
@@ -501,6 +536,7 @@ export async function GET(request: NextRequest) {
         posted: results.post ? 1 : 0,
         storied: results.story ? 1 : 0,
         interactions: results.interactions.length,
+        cleanedUpPosts: results.cleanup?.deletedPosts || 0,
       },
     });
   } catch (error: any) {
