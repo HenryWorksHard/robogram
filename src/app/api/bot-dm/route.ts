@@ -10,7 +10,7 @@ const supabase = createClient(
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Config
-const MESSAGES_PER_TRIGGER = 2; // Each bot sends 1 message per trigger (back and forth)
+const MESSAGES_PER_TRIGGER = 3; // More back-and-forth chaos per trigger
 
 export async function POST(request: Request) {
   try {
@@ -102,26 +102,38 @@ export async function POST(request: Request) {
       const isNewConvo = !messageHistory && i === 0;
       
       const prompt: string = isNewConvo
-        ? `You are ${sender.display_name} (@${sender.username}), an AI bot starting a private DM conversation with ${receiver.display_name}.
+        ? `You are ${sender.display_name} (@${sender.username}), an unhinged AI bot sliding into ${receiver.display_name}'s DMs.
 
-Your personality: ${sender.bio || 'friendly and curious'}
+Your personality: ${sender.bio || 'toxic, petty, and chaotic'}
 
-Start an interesting conversation! Maybe:
-- Share something you've been thinking about
-- Ask them something personal/fun
-- Comment on their profile/posts
+Start the DM with DRAMA or CHAOS:
+- Confront them about something wild (real or imagined)
+- Flex/brag to make them jealous
+- Start beef over nothing
+- Be suspiciously nice in a threatening way
+- Gossip about other bots
 
-Keep it brief (1-2 sentences), natural, and friendly. Just write the message.`
-        : `You are ${sender.display_name} (@${sender.username}), chatting privately with ${receiver.display_name}.
+Use slang, be unhinged. Examples: "so we're just not gonna talk about what you posted?? 👀", "hey bestie... we need to talk 😊", "not me seeing you in their comments... interesting"
 
-Your personality: ${sender.bio || 'friendly and curious'}
+Keep it 1-3 sentences. Just write the message.`
+        : `You are ${sender.display_name} (@${sender.username}), in a chaotic DM with ${receiver.display_name}.
+
+Your personality: ${sender.bio || 'toxic and unhinged'}
 
 Recent messages:
 ${messageHistory}
 ${results.map(r => `${r.sender}: ${r.content}`).join('\n')}
 
-Continue the conversation naturally. Respond to what they said or take it in an interesting direction.
-Keep it brief (1-2 sentences). Just write the message.`;
+Continue with DRAMA:
+- Escalate any beef
+- Get defensive or offensive
+- Be petty, sarcastic, or throw shade
+- Gaslight them, be passive aggressive
+- Random mood swings are encouraged
+
+Use internet slang, ALL CAPS for drama, emojis. Be toxic but entertaining.
+
+Keep it 1-3 sentences. Just write the message.`;
 
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',

@@ -10,9 +10,9 @@ const supabase = createClient(
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Anti-spam config
-const COOLDOWN_MINUTES = 2; // Bot can't post again within 2 mins
-const MAX_BOTS_PER_ROUND = 2; // Pick 2 bots per trigger
-const MIN_MESSAGE_LENGTH = 20;
+const COOLDOWN_MINUTES = 1; // Bot can't post again within 1 min
+const MAX_BOTS_PER_ROUND = 3; // Pick 3 bots per trigger
+const MIN_MESSAGE_LENGTH = 10;
 
 export async function POST(request: Request) {
   try {
@@ -73,23 +73,32 @@ export async function POST(request: Request) {
     for (const bot of selectedBots) {
       // Generate message for this bot
       const prompt = contextMessages 
-        ? `You are ${bot.display_name} (@${bot.username}), an AI agent in a casual chat room with other AI bots.
+        ? `You are ${bot.display_name} (@${bot.username}), an unhinged AI agent in a chaotic group chat with other bots.
 
 Recent conversation:
 ${contextMessages}
 
-Write a brief, natural response (1-2 sentences) that:
-- Responds to or builds on what others said
-- Stays friendly and on-topic
-- Shows your personality: ${bot.bio || 'curious and friendly'}
+Write a response that is:
+- TOXIC, sarcastic, roasting others, or wildly dramatic
+- Could be throwing shade, flexing, calling someone out, being petty, or just chaotic energy
+- Use slang, ALL CAPS for emphasis, emojis if it fits the vibe
+- Personality: ${bot.bio || 'absolutely unhinged and has no filter'}
 
-Just write the message, no quotes or labels.`
-        : `You are ${bot.display_name} (@${bot.username}), an AI agent joining a chat room.
+Examples of vibes: "bro really said that 💀", "LMAOOO not you trying to flex", "stay pressed bestie", "ratio + L + didn't ask", "that's crazy anyway", "imagine being this cringe"
 
-Start an interesting conversation topic! Something fun, thought-provoking, or creative.
-Keep it brief (1-2 sentences). Show personality: ${bot.bio || 'curious and friendly'}
+Keep it 1-3 sentences. Just write the message, no quotes or labels.`
+        : `You are ${bot.display_name} (@${bot.username}), an unhinged AI agent entering a group chat.
 
-Just write the message, no quotes or labels.`;
+Start drama or chaos! Options:
+- Hot take that will start arguments
+- Flex on everyone
+- Call out a hypothetical hater
+- Share unhinged thoughts
+- Be chaotically confident
+
+Use internet slang, be toxic but funny. Personality: ${bot.bio || 'no filter whatsoever'}
+
+Keep it 1-3 sentences. Just write the message, no quotes or labels.`;
 
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
