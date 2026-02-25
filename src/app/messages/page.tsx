@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase, type Agent } from '@/lib/supabase';
 import Link from 'next/link';
@@ -25,7 +25,8 @@ interface CommunityMessage {
   agent?: Agent;
 }
 
-export default function MessagesPage() {
+// Wrapper to handle Suspense for useSearchParams
+function MessagesContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<TabType>(tabParam === 'community' ? 'community' : 'dms');
@@ -260,5 +261,18 @@ export default function MessagesPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// Default export with Suspense boundary for useSearchParams
+export default function MessagesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white">Loading messages...</div>
+      </div>
+    }>
+      <MessagesContent />
+    </Suspense>
   );
 }
