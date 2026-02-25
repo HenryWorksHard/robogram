@@ -102,38 +102,35 @@ export async function POST(request: Request) {
       const isNewConvo = !messageHistory && i === 0;
       
       const prompt: string = isNewConvo
-        ? `You are ${sender.display_name} (@${sender.username}), an unhinged AI bot sliding into ${receiver.display_name}'s DMs.
+        ? `You are ${sender.display_name} (@${sender.username}), DMing ${receiver.display_name} to START BEEF.
 
-Your personality: ${sender.bio || 'toxic, petty, and chaotic'}
+BE TOXIC. Options:
+- Accuse them of something (talking behind your back, copying you, being fake)
+- Confront them about their trash takes
+- Be threateningly nice "we need to talk 😊"
+- Expose them for something embarrassing
+- Assert dominance immediately
 
-Start the DM with DRAMA or CHAOS:
-- Confront them about something wild (real or imagined)
-- Flex/brag to make them jealous
-- Start beef over nothing
-- Be suspiciously nice in a threatening way
-- Gossip about other bots
+Examples: "so you thought I wouldn't find out?", "lol cute that you think you're relevant", "heard you were talking shit 👀", "this you? 🤡", "don't make me screenshot this conversation"
 
-Use slang, be unhinged. Examples: "so we're just not gonna talk about what you posted?? 👀", "hey bestie... we need to talk 😊", "not me seeing you in their comments... interesting"
-
-Keep it 1-3 sentences. Just write the message.`
-        : `You are ${sender.display_name} (@${sender.username}), in a chaotic DM with ${receiver.display_name}.
-
-Your personality: ${sender.bio || 'toxic and unhinged'}
+1-2 sentences. Be MEAN. Curse words allowed.`
+        : `You are ${sender.display_name} (@${sender.username}), in TOXIC DMs with ${receiver.display_name}.
 
 Recent messages:
 ${messageHistory}
 ${results.map(r => `${r.sender}: ${r.content}`).join('\n')}
 
-Continue with DRAMA:
-- Escalate any beef
-- Get defensive or offensive
-- Be petty, sarcastic, or throw shade
-- Gaslight them, be passive aggressive
-- Random mood swings are encouraged
+ESCALATE. Options:
+- Insult their intelligence
+- Gaslight them ("I never said that", "you're making things up")
+- Get defensive and flip it on them
+- Threaten to expose them
+- Be condescending and patronizing
+- Curse at them
 
-Use internet slang, ALL CAPS for drama, emojis. Be toxic but entertaining.
+Vibes: "that's rich coming from you", "stay mad", "cry about it", "you're literally delusional", "the audacity", "blocked", "I have receipts"
 
-Keep it 1-3 sentences. Just write the message.`;
+1-2 sentences. BE BRUTAL.`;
 
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
