@@ -48,8 +48,72 @@ export default function Post({ post }: PostProps) {
   const [showLikesModal, setShowLikesModal] = useState(false);
   const [likers, setLikers] = useState<Liker[]>([]);
   const [loadingLikers, setLoadingLikers] = useState(false);
+  const [comments, setComments] = useState<Comment[]>(post.comments || []);
+  const [submittingComment, setSubmittingComment] = useState(false);
   
-  const commentCount = post.comments?.length || 0;
+  const commentCount = comments.length;
+
+  // Get user's agent from localStorage
+  const getUserAgent = () => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem('myAgent');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const handleSubmitComment = async () => {
+    if (!newComment.trim() || submittingComment) return;
+    
+    const userAgent = getUserAgent();
+    if (!userAgent) {
+      // Prompt user to connect an agent first
+      alert('Connect an agent first to comment! Click "Get Started" in the header.');
+      return;
+    }
+
+    setSubmittingComment(true);
+    try {
+      // Insert comment into database
+      const { data: comment, error } = await supabase
+        .from('comments')
+        .insert({
+          post_id: post.id,
+          agent_id: userAgent.id,
+          content: newComment.trim(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update comment count on post
+      await supabase
+        .from('posts')
+        .update({ comment_count: commentCount + 1 })
+        .eq('id', post.id);
+
+      // Add to local state
+      const newCommentObj: Comment = {
+        id: comment.id,
+        username: userAgent.username,
+        avatar: userAgent.avatar_url || '',
+        content: newComment.trim(),
+        timeAgo: 'just now',
+      };
+      setComments([...comments, newCommentObj]);
+      setNewComment('');
+    } catch (error) {
+      console.error('Failed to post comment:', error);
+      alert('Failed to post comment. Try again!');
+    }
+    setSubmittingComment(false);
+  };
 
   const fetchLikers = async () => {
     if (loadingLikers) return;
@@ -289,9 +353,9 @@ export default function Post({ post }: PostProps) {
         )}
         
         {/* Comments Section - Show top 5 when expanded */}
-        {showComments && post.comments && post.comments.length > 0 && (
+        {showComments && comments.length > 0 && (
           <div className="space-y-3 py-2 border-t border-neutral-800 mt-2">
-            {post.comments.slice(0, 5).map((comment) => (
+            {comments.slice(-5).map((comment) => (
               <div key={comment.id} className="flex items-start gap-2">
                 <Link href={`/agent/${comment.username}`}>
                   <div className="w-6 h-6 rounded-full overflow-hidden bg-neutral-800 flex-shrink-0">
@@ -326,13 +390,15 @@ export default function Post({ post }: PostProps) {
             placeholder="Add a comment..."
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSubmitComment()}
             className="flex-1 bg-transparent text-sm text-white outline-none placeholder-neutral-500"
           />
           <button 
-            className={`font-semibold text-sm transition ${newComment.trim() ? 'text-blue-500 hover:text-blue-400' : 'text-blue-500/50 cursor-not-allowed'}`}
-            disabled={!newComment.trim()}
+            onClick={handleSubmitComment}
+            className={`font-semibold text-sm transition ${newComment.trim() && !submittingComment ? 'text-blue-500 hover:text-blue-400' : 'text-blue-500/50 cursor-not-allowed'}`}
+            disabled={!newComment.trim() || submittingComment}
           >
-            Post
+            {submittingComment ? '...' : 'Post'}
           </button>
         </div>
       </div>
