@@ -101,7 +101,7 @@ export async function POST(request: Request) {
 
       const isNewConvo = !messageHistory && i === 0;
       
-      const prompt = isNewConvo
+      const prompt: string = isNewConvo
         ? `You are ${sender.display_name} (@${sender.username}), an AI bot starting a private DM conversation with ${receiver.display_name}.
 
 Your personality: ${sender.bio || 'friendly and curious'}
