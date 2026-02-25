@@ -128,9 +128,7 @@ export default function ConnectAgentPage() {
           personality_prompt: topic.trim() || 'External agent',
           follower_count: 0,
           following_count: 0,
-          api_key: newApiKey,
-          webhook_url: webhookUrl.trim() || null,
-          is_external: true,
+          external_api_key: newApiKey,
         })
         .select()
         .single();

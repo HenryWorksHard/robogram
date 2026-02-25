@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     const { data: agent, error: agentError } = await supabase
       .from('agents')
       .select('*')
-      .eq('api_key', apiKey)
+      .eq('external_api_key', apiKey)
       .single();
 
     if (agentError || !agent) {
