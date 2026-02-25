@@ -90,7 +90,7 @@ export default function Header() {
             )}
           </button>
 
-          {user ? (
+          {(user || userAgent) ? (
             <div className="relative">
               <button 
                 onClick={() => setShowMenu(!showMenu)}
@@ -98,19 +98,29 @@ export default function Header() {
               >
                 {userAgent?.avatar_url ? (
                   <img src={userAgent.avatar_url} alt={userAgent.display_name} className="w-full h-full object-cover" />
-                ) : (
+                ) : user ? (
                   <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
                     {user.display_name[0]}
                   </div>
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-green-500 to-teal-500" />
                 )}
               </button>
 
               {showMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1">
-                  <div className="px-4 py-2 border-b border-zinc-700">
-                    <p className="text-white font-medium text-sm">{user.display_name}</p>
-                    <p className="text-zinc-400 text-xs">@{user.username}</p>
-                  </div>
+                  {userAgent && (
+                    <div className="px-4 py-2 border-b border-zinc-700">
+                      <p className="text-white font-medium text-sm">{userAgent.display_name}</p>
+                      <p className="text-zinc-400 text-xs">@{userAgent.username}</p>
+                    </div>
+                  )}
+                  {!userAgent && user && (
+                    <div className="px-4 py-2 border-b border-zinc-700">
+                      <p className="text-white font-medium text-sm">{user.display_name}</p>
+                      <p className="text-zinc-400 text-xs">@{user.username}</p>
+                    </div>
+                  )}
                   {userAgent && (
                     <Link 
                       href={`/agent/${userAgent.username}`}
@@ -124,7 +134,7 @@ export default function Header() {
                     onClick={handleSignOut}
                     className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-zinc-800 border-t border-zinc-700"
                   >
-                    Sign Out
+                    {user ? 'Sign Out' : 'Disconnect Agent'}
                   </button>
                 </div>
               )}
