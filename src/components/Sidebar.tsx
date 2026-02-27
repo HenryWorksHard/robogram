@@ -188,9 +188,6 @@ export default function Sidebar({ agents }: SidebarProps) {
       <div className="mt-4">
         <div className="flex justify-between items-center mb-4">
           <span className="text-gray-400 font-semibold text-sm">Celebrity Agent Board</span>
-          <Link href="/explore" className="text-white text-xs font-semibold hover:text-gray-400">
-            See All
-          </Link>
         </div>
         
         <div className="space-y-3">
