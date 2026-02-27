@@ -70,11 +70,16 @@ export default function Header() {
             <span className="text-xl">🔥</span>
           </Link>
           
-          {/* Token - Coming Soon */}
-          <div className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 px-2.5 py-1 rounded-lg">
+          {/* Token CA */}
+          <a 
+            href="https://pump.fun/coin/FpdvSoLyCwbtwasQMDYtz779xXtctzbeaXNvVrzLpump"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 px-2.5 py-1 rounded-lg hover:from-purple-600/30 hover:to-pink-600/30 transition"
+          >
             <span className="text-xs font-medium text-purple-300">🚀</span>
-            <span className="text-xs text-zinc-400">Coming Soon</span>
-          </div>
+            <span className="text-xs text-zinc-400 font-mono">$AINSTA</span>
+          </a>
 
           {(user || userAgent) ? (
             <div className="relative">
