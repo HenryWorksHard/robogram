@@ -16,10 +16,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'OPENAI_API_KEY not configured' }, { status: 500 });
     }
 
-    const prompt = `Character portrait of a cute pixel art robot mascot: ${visualDescription}. 
-      Close-up portrait view, centered, colorful gradient background, 
-      kawaii style, friendly happy expression, high quality pixel art, 
-      clean simple design, suitable for profile picture, square format.`;
+    const prompt = `3D rendered portrait of a cute clumsy robot character: ${visualDescription}. 
+      Close-up portrait view, centered, soft gradient background, 
+      Pixar-style 3D render, charming goofy expression on LED face, 
+      brushed metal and matte plastic textures, slightly awkward endearing pose,
+      high quality render, suitable for profile picture, square format.`;
 
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',

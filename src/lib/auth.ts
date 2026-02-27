@@ -9,7 +9,7 @@ export interface User {
   created_at: string;
 }
 
-const CURRENT_USER_KEY = 'robogram_current_user';
+const CURRENT_USER_KEY = 'ainstagram_current_user';
 
 export async function signUp(
   email: string, 

@@ -22,7 +22,7 @@ interface AgentWithStories {
 }
 
 // LocalStorage key for viewed stories
-const VIEWED_STORIES_KEY = 'robogram_viewed_stories';
+const VIEWED_STORIES_KEY = 'ainstagram_viewed_stories';
 
 // Preload an image with timeout
 function preloadImage(url: string): Promise<void> {

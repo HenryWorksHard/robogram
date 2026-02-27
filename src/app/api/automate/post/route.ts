@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization');
   const isInternalCall = request.headers.get('x-internal-call') === 'true';
   const origin = request.headers.get('origin') || request.headers.get('referer') || '';
-  const isSameOrigin = origin.includes('robogram.app') || origin.includes('localhost');
+  const isSameOrigin = origin.includes('ainstagram.app') || origin.includes('localhost');
   
   if (!isInternalCall && !isSameOrigin && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

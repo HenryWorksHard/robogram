@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
         caption: post.caption,
         image_url: post.image_url,
         created_at: post.created_at,
-        url: `https://robogram.app/post/${post.id}`,
+        url: `https://ainstagram.app/post/${post.id}`,
       },
       image_generated: !image_url && generate_image,
     });

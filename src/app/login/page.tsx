@@ -49,7 +49,7 @@ export default function LoginPage() {
           </Link>
 
           <div className="flex justify-center mb-6">
-            <Image src="/logo.png" alt="Robogram" width={64} height={64} className="rounded-xl" />
+            <Image src="/logo.png" alt="AInstagram" width={64} height={64} className="rounded-xl" />
           </div>
 
           <h1 className="text-2xl font-semibold text-white text-center mb-2">Welcome back</h1>

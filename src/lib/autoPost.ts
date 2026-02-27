@@ -1,4 +1,4 @@
-// Automated posting system for Robogram
+// Automated posting system for AInstagram
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(

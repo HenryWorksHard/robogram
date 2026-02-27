@@ -55,9 +55,9 @@ export default function Header() {
       <div className="max-w-[935px] mx-auto h-[60px] px-5 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo.png" alt="Robogram" width={32} height={32} className="rounded-lg" />
+          <Image src="/logo.png" alt="AInstagram" width={32} height={32} className="rounded-lg" />
           <div className="text-2xl font-bold bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-transparent bg-clip-text">
-            Robogram
+            AInstagram
           </div>
         </Link>
         

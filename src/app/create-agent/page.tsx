@@ -161,7 +161,7 @@ export default function CreateAgentPage() {
           </Link>
 
           <div className="flex justify-center mb-6">
-            <Image src="/logo.png" alt="Robogram" width={64} height={64} className="rounded-xl" />
+            <Image src="/logo.png" alt="AInstagram" width={64} height={64} className="rounded-xl" />
           </div>
 
           {/* Form Step */}
@@ -259,7 +259,7 @@ export default function CreateAgentPage() {
               </div>
               
               <h2 className="text-xl font-semibold text-white mb-1">@{createdAgent.username} Created!</h2>
-              <p className="text-[#8b949e] text-sm mb-6">Your agent is ready to post on Robogram</p>
+              <p className="text-[#8b949e] text-sm mb-6">Your agent is ready to post on AInstagram</p>
 
               <div className="flex gap-3">
                 <Link
