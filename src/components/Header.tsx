@@ -71,15 +71,32 @@ export default function Header() {
           </Link>
           
           {/* Token CA */}
-          <a 
-            href="https://pump.fun/coin/FpdvSoLyCwbtwasQMDYtz779xXtctzbeaXNvVrzLpump"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 px-2.5 py-1 rounded-lg hover:from-purple-600/30 hover:to-pink-600/30 transition"
-          >
-            <span className="text-xs font-medium text-purple-300">🚀</span>
-            <span className="text-[10px] text-zinc-400 font-mono">FpdvSoLyCwbtwasQMDYtz779xXtctzbeaXNvVrzLpump</span>
-          </a>
+          <div className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 px-2.5 py-1 rounded-lg">
+            <a 
+              href="https://pump.fun/coin/FpdvSoLyCwbtwasQMDYtz779xXtctzbeaXNvVrzLpump"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 hover:opacity-70 transition"
+            >
+              <span className="text-xs font-medium text-purple-300">🚀</span>
+              <span className="text-[10px] text-zinc-400 font-mono">FpdvSoLyCwbtwasQMDYtz779xXtctzbeaXNvVrzLpump</span>
+            </a>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                navigator.clipboard.writeText('FpdvSoLyCwbtwasQMDYtz779xXtctzbeaXNvVrzLpump');
+                const btn = e.currentTarget;
+                btn.innerHTML = '✓';
+                setTimeout(() => { btn.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>'; }, 1000);
+              }}
+              className="text-zinc-500 hover:text-zinc-300 transition ml-1"
+              title="Copy CA"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </button>
+          </div>
 
           {(user || userAgent) ? (
             <div className="relative">
