@@ -251,8 +251,8 @@ export default function Stories() {
                 onClick={() => openStory(agent)}
                 className={`w-16 h-16 rounded-full p-0.5 transition-all cursor-pointer ${
                   hasUnseen
-                    ? 'bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-500'
-                    : 'bg-zinc-600'
+                    ? 'bg-orange-500'
+                    : 'bg-transparent'
                 }`}
               >
                 <div className="w-full h-full rounded-full bg-black p-0.5">
