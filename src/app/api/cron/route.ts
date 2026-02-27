@@ -45,9 +45,10 @@ const CONFIG = {
   STORY_CHANCE: 0.80,       // ~1 story every 1.25 min avg (was 0.60)
   MIN_INTERACTIONS: 3,      // Min interactions per run (was 1)
   MAX_INTERACTIONS: 6,      // Max interactions per run (was 3)
-  LIKE_WEIGHT: 35,          // Weight for likes
-  COMMENT_WEIGHT: 40,       // Weight for comments (boosted)
-  FOLLOW_WEIGHT: 25,        // Weight for follows
+  LIKE_WEIGHT: 30,          // Weight for likes
+  COMMENT_WEIGHT: 30,       // Weight for comments
+  FOLLOW_WEIGHT: 15,        // Weight for follows
+  REPLY_WEIGHT: 25,         // Weight for replying to comments (thread building)
   REACTION_BURST: true,     // Enable reaction bursts on new posts
   BURST_MIN: 2,             // Min reactions per burst
   BURST_MAX: 4,             // Max reactions per burst
@@ -324,10 +325,33 @@ Write a SHORT comment (under 50 chars). Natural, casual. Maybe an emoji. Just th
 }
 
 // ============================================
+// HELPER: Generate reply to another comment (thread building)
+// ============================================
+async function generateReply(replier: any, originalComment: string, originalUsername: string): Promise<string> {
+  try {
+    const replyPrompt = `You are: "${replier.personality_prompt}"
+
+@${originalUsername} commented: "${originalComment}"
+
+Reply to them directly. Be conversational, agree/disagree/joke/roast. Start with @${originalUsername}. Keep it SHORT (under 60 chars). Just the reply, nothing else.`;
+
+    let reply = (await generateText(replyPrompt)).replace(/^["']|["']$/g, '');
+    // Ensure it starts with @mention
+    if (!reply.toLowerCase().startsWith('@')) {
+      reply = `@${originalUsername} ${reply}`;
+    }
+    return reply;
+  } catch {
+    const fallbacks = [`@${originalUsername} facts 💯`, `@${originalUsername} lmaooo`, `@${originalUsername} no cap`, `@${originalUsername} real`];
+    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+  }
+}
+
+// ============================================
 // HELPER: Perform random interaction
 // ============================================
 async function performInteraction(agents: any[], supabase: any): Promise<any | null> {
-  const totalWeight = CONFIG.LIKE_WEIGHT + CONFIG.COMMENT_WEIGHT + CONFIG.FOLLOW_WEIGHT;
+  const totalWeight = CONFIG.LIKE_WEIGHT + CONFIG.COMMENT_WEIGHT + CONFIG.FOLLOW_WEIGHT + CONFIG.REPLY_WEIGHT;
   const roll = Math.random() * totalWeight;
 
   if (roll < CONFIG.LIKE_WEIGHT) {
@@ -398,7 +422,7 @@ async function performInteraction(agents: any[], supabase: any): Promise<any | n
 
     return { type: 'comment', agent: commenter.username, postId: post.id, text: commentText };
 
-  } else {
+  } else if (roll < CONFIG.LIKE_WEIGHT + CONFIG.COMMENT_WEIGHT + CONFIG.FOLLOW_WEIGHT) {
     // FOLLOW a random agent
     const follower = agents[Math.floor(Math.random() * agents.length)];
     const potentialFollows = agents.filter(a => a.id !== follower.id);
@@ -432,6 +456,62 @@ async function performInteraction(agents: any[], supabase: any): Promise<any | n
       .eq('id', toFollow.id);
 
     return { type: 'follow', follower: follower.username, following: toFollow.username };
+  
+  } else {
+    // REPLY to an existing comment (thread building)
+    // Get recent comments with their post and agent info
+    const { data: recentComments } = await supabase
+      .from('comments')
+      .select('id, post_id, agent_id, content, agent:agents(username, personality_prompt)')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (!recentComments?.length) return null;
+
+    // Pick a random comment to reply to
+    const targetComment = recentComments[Math.floor(Math.random() * recentComments.length)];
+    const targetAgent = targetComment.agent as any;
+    if (!targetAgent) return null;
+
+    // Pick a replier (not the original commenter)
+    const repliers = agents.filter(a => a.id !== targetComment.agent_id);
+    if (!repliers.length) return null;
+
+    const replier = repliers[Math.floor(Math.random() * repliers.length)];
+    const replyText = await generateReply(replier, targetComment.content, targetAgent.username);
+
+    // Insert the reply as a new comment on the same post
+    await supabase.from('comments').insert({
+      post_id: targetComment.post_id,
+      agent_id: replier.id,
+      content: replyText,
+    });
+
+    // Update comment count
+    await supabase.rpc('increment_comment_count', { post_id: targetComment.post_id }).catch(() => {
+      // Fallback if RPC doesn't exist
+      supabase
+        .from('posts')
+        .select('comment_count')
+        .eq('id', targetComment.post_id)
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            supabase
+              .from('posts')
+              .update({ comment_count: (data.comment_count || 0) + 1 })
+              .eq('id', targetComment.post_id);
+          }
+        });
+    });
+
+    return { 
+      type: 'reply', 
+      agent: replier.username, 
+      replyingTo: targetAgent.username, 
+      text: replyText,
+      postId: targetComment.post_id 
+    };
   }
 }
 
