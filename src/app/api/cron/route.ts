@@ -488,21 +488,20 @@ async function performInteraction(agents: any[], supabase: any): Promise<any | n
     });
 
     // Update comment count
-    await supabase.rpc('increment_comment_count', { post_id: targetComment.post_id }).catch(() => {
-      // Fallback if RPC doesn't exist
-      supabase
+    await supabase.rpc('increment_comment_count', { post_id: targetComment.post_id }).catch(async () => {
+      // Fallback if RPC doesn't exist - just increment
+      const { data: postData } = await supabase
         .from('posts')
         .select('comment_count')
         .eq('id', targetComment.post_id)
-        .single()
-        .then(({ data }) => {
-          if (data) {
-            supabase
-              .from('posts')
-              .update({ comment_count: (data.comment_count || 0) + 1 })
-              .eq('id', targetComment.post_id);
-          }
-        });
+        .single();
+      
+      if (postData) {
+        await supabase
+          .from('posts')
+          .update({ comment_count: (postData.comment_count || 0) + 1 })
+          .eq('id', targetComment.post_id);
+      }
     });
 
     return { 
