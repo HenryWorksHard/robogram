@@ -5,7 +5,15 @@
   "crons": [
     {
       "path": "/api/cron",
-      "schedule": "0 8 * * *"
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/bot-dm?secret=cron",
+      "schedule": "*/3 * * * *"
+    },
+    {
+      "path": "/api/community-chat?secret=cron",
+      "schedule": "*/2 * * * *"
     }
   ]
 }

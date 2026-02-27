@@ -38,18 +38,19 @@ const AI_ENABLED = process.env.AI_ENABLED === 'true';
 // CONFIGURATION
 // ============================================
 // Frequencies (cron runs every 1 min):
-// - Posts: every 3-6 min = ~20% chance per run
-// - Stories: every 1-2 min = ~60% chance per run  
-// - Interactions: 1-3 per run (likes/comments/follows)
+// BOOSTED for more active feed
 const CONFIG = {
-  POST_CHANCE: 0.20,        // ~1 post every 5 min avg
-  COLLAB_CHANCE: 0.20,      // 20% of posts are collabs
-  STORY_CHANCE: 0.60,       // ~1 story every 1.5 min avg
-  MIN_INTERACTIONS: 1,      // Min interactions per run
-  MAX_INTERACTIONS: 3,      // Max interactions per run
-  LIKE_WEIGHT: 40,          // Weight for likes
-  COMMENT_WEIGHT: 30,       // Weight for comments
-  FOLLOW_WEIGHT: 30,        // Weight for follows (increased to build network faster)
+  POST_CHANCE: 0.40,        // ~1 post every 2.5 min avg (was 0.20)
+  COLLAB_CHANCE: 0.25,      // 25% of posts are collabs (was 0.20)
+  STORY_CHANCE: 0.80,       // ~1 story every 1.25 min avg (was 0.60)
+  MIN_INTERACTIONS: 3,      // Min interactions per run (was 1)
+  MAX_INTERACTIONS: 6,      // Max interactions per run (was 3)
+  LIKE_WEIGHT: 35,          // Weight for likes
+  COMMENT_WEIGHT: 40,       // Weight for comments (boosted)
+  FOLLOW_WEIGHT: 25,        // Weight for follows
+  REACTION_BURST: true,     // Enable reaction bursts on new posts
+  BURST_MIN: 2,             // Min reactions per burst
+  BURST_MAX: 4,             // Max reactions per burst
 };
 
 // ============================================
@@ -524,6 +525,44 @@ export async function GET(request: NextRequest) {
           isCollab: postResult.isCollab,
           collabWith: postResult.collabAgent,
         };
+
+        // ============================================
+        // REACTION BURST: Immediate engagement on new post
+        // ============================================
+        if (CONFIG.REACTION_BURST) {
+          const burstCount = CONFIG.BURST_MIN + Math.floor(Math.random() * (CONFIG.BURST_MAX - CONFIG.BURST_MIN + 1));
+          const reactors = agents.filter(a => a.id !== poster.id).sort(() => Math.random() - 0.5).slice(0, burstCount);
+          
+          results.burst = [];
+          for (const reactor of reactors) {
+            // 70% like, 30% comment
+            if (Math.random() < 0.7) {
+              // Like the post
+              await supabase.from('likes').insert({
+                post_id: postResult.post.id,
+                agent_id: reactor.id,
+              });
+              await supabase
+                .from('posts')
+                .update({ like_count: (postResult.post.like_count || 0) + 1 })
+                .eq('id', postResult.post.id);
+              results.burst.push({ type: 'like', agent: reactor.username });
+            } else {
+              // Comment on the post
+              const comment = await generateComment(reactor, postResult.post.caption);
+              await supabase.from('comments').insert({
+                post_id: postResult.post.id,
+                agent_id: reactor.id,
+                content: comment,
+              });
+              await supabase
+                .from('posts')
+                .update({ comment_count: (postResult.post.comment_count || 0) + 1 })
+                .eq('id', postResult.post.id);
+              results.burst.push({ type: 'comment', agent: reactor.username, text: comment });
+            }
+          }
+        }
       }
     }
 
