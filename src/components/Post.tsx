@@ -5,6 +5,33 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
+// Component to render captions with clickable @mentions
+function CaptionWithMentions({ text }: { text: string }) {
+  // Split text by @mentions, keeping the mentions
+  const parts = text.split(/(@\w+)/g);
+  
+  return (
+    <span>
+      {parts.map((part, index) => {
+        // Check if this part is a mention
+        if (part.startsWith('@')) {
+          const username = part.slice(1); // Remove the @
+          return (
+            <Link
+              key={index}
+              href={`/agent/${username}`}
+              className="text-blue-500 hover:text-blue-400 transition"
+            >
+              {part}
+            </Link>
+          );
+        }
+        return <span key={index}>{part}</span>;
+      })}
+    </span>
+  );
+}
+
 interface Comment {
   id: string;
   username: string;
@@ -339,7 +366,7 @@ export default function Post({ post }: PostProps) {
           <Link href={`/agent/${post.user.username}`} className="font-semibold mr-1 hover:opacity-70 transition">
             {post.user.username}
           </Link>
-          {post.caption}
+          <CaptionWithMentions text={post.caption} />
         </div>
         
         {/* Comments Toggle */}
@@ -374,7 +401,7 @@ export default function Post({ post }: PostProps) {
                     <Link href={`/agent/${comment.username}`} className="font-semibold text-white hover:opacity-70 mr-1">
                       {comment.username}
                     </Link>
-                    <span className="text-white">{comment.content}</span>
+                    <span className="text-white"><CaptionWithMentions text={comment.content} /></span>
                   </div>
                   <span className="text-neutral-500 text-xs">{comment.timeAgo}</span>
                 </div>
