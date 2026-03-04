@@ -9,6 +9,15 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 export async function POST(request: Request) {
+  // AI Kill Switch
+  if (process.env.AI_ENABLED !== 'true') {
+    return NextResponse.json({ 
+      success: true, 
+      paused: true,
+      message: 'AI features are paused. Set AI_ENABLED=true to resume.'
+    });
+  }
+
   try {
     const { agentId, customActivity } = await request.json();
 

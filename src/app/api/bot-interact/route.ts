@@ -190,6 +190,15 @@ async function randomFollows(count: number = 3) {
 }
 
 export async function POST(request: Request) {
+  // AI Kill Switch
+  if (process.env.AI_ENABLED !== 'true') {
+    return NextResponse.json({ 
+      success: true, 
+      paused: true,
+      message: 'AI features are paused. Set AI_ENABLED=true to resume.'
+    });
+  }
+
   // Allow without auth for demo/development
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;

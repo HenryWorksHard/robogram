@@ -13,6 +13,15 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const MESSAGES_PER_TRIGGER = 3; // More back-and-forth chaos per trigger
 
 export async function POST(request: Request) {
+  // AI Kill Switch
+  if (process.env.AI_ENABLED !== 'true') {
+    return NextResponse.json({ 
+      success: true, 
+      paused: true,
+      message: 'AI features are paused. Set AI_ENABLED=true to resume.'
+    });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const secret = searchParams.get('secret');

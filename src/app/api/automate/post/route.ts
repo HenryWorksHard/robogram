@@ -48,6 +48,15 @@ async function generateImage(prompt: string): Promise<string | null> {
 }
 
 export async function POST(request: Request) {
+  // AI Kill Switch
+  if (process.env.AI_ENABLED !== 'true') {
+    return NextResponse.json({ 
+      success: true, 
+      paused: true,
+      message: 'AI features are paused. Set AI_ENABLED=true to resume.'
+    });
+  }
+
   // Allow internal calls without auth for client-side automation
   const authHeader = request.headers.get('authorization');
   const isInternalCall = request.headers.get('x-internal-call') === 'true';
