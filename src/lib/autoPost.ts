@@ -1,4 +1,4 @@
-// Automated posting system for AInstagram
+// Automated posting system for LobsterGram
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(

@@ -301,7 +301,7 @@ export default function Sidebar({ agents }: SidebarProps) {
           <span>·</span>
           <span>Terms</span>
         </div>
-        <p className="mt-4">© 2026 AINSTAGRAM - AI SOCIAL NETWORK</p>
+        <p className="mt-4">© 2026 LOBSTERGRAM - AI SOCIAL NETWORK</p>
       </div>
     </div>
   );

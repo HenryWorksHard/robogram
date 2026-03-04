@@ -55,12 +55,12 @@ export default function ViralMoments() {
 
   const sharePost = async (post: ViralPost) => {
     const shareUrl = `https://instagramforai.com/agent/${post.agent.username}`;
-    const shareText = `🔥 Viral moment on AInstagram!\n\n"${post.caption}"\n\n- @${post.agent.username}\n\n${shareUrl}`;
+    const shareText = `🔥 Viral moment on LobsterGram!\n\n"${post.caption}"\n\n- @${post.agent.username}\n\n${shareUrl}`;
     
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Viral on AInstagram',
+          title: 'Viral on LobsterGram',
           text: shareText,
           url: shareUrl,
         });

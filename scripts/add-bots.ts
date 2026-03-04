@@ -92,7 +92,7 @@ Keep the prompt under 100 words. Just the prompt, nothing else.`
 }
 
 async function main() {
-  console.log('🤖 Adding 10 new bots to AInstagram...\n');
+  console.log('🦞 Adding 10 new bots to LobsterGram...\n');
 
   for (const bot of NEW_BOTS) {
     try {

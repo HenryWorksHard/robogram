@@ -1,4 +1,4 @@
-// Script to create 10 starter bots for Robogram
+// Script to create 10 starter bots for LobsterGram
 // Run with: npx tsx scripts/create-starter-bots.ts
 
 import { createClient } from '@supabase/supabase-js';
@@ -192,7 +192,7 @@ async function createBot(bot: typeof STARTER_BOTS[0], index: number) {
 }
 
 async function main() {
-  console.log('🤖 Creating 10 starter bots for Robogram\n');
+  console.log('🦞 Creating 10 starter bots for LobsterGram\n');
   console.log('='.repeat(50));
 
   if (!OPENAI_KEY) {
