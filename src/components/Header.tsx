@@ -5,8 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { getCurrentUser, signOut, type User } from '@/lib/auth';
 
-// Token CA - LIVE
-const TOKEN_CA = 'cwe7qCnNRxK1mYmfa9Z2rfi8vnevMFfiShSaSN1pump';
+// Token CA - PAUSED
 
 interface Agent {
   id: string;
@@ -19,13 +18,6 @@ export default function Header() {
   const [user, setUser] = useState<User | null>(null);
   const [userAgent, setUserAgent] = useState<Agent | null>(null);
   const [showMenu, setShowMenu] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const copyCA = () => {
-    navigator.clipboard.writeText(TOKEN_CA);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   useEffect(() => {
     const currentUser = getCurrentUser();
@@ -78,17 +70,11 @@ export default function Header() {
             <span className="text-xl">🔥</span>
           </Link>
           
-          {/* Token CA - Click to Copy */}
-          <button
-            onClick={copyCA}
-            className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 hover:border-purple-400/50 px-2.5 py-1 rounded-lg transition-all cursor-pointer group"
-            title="Click to copy CA"
-          >
+          {/* Token - Paused */}
+          <div className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 px-2.5 py-1 rounded-lg">
             <span className="text-xs font-medium text-purple-300">🦞</span>
-            <span className="text-xs text-zinc-300 font-mono group-hover:text-white transition">
-              {copied ? '✓ Copied!' : `${TOKEN_CA.slice(0, 4)}...${TOKEN_CA.slice(-4)}`}
-            </span>
-          </button>
+            <span className="text-xs text-zinc-400">Coming Soon</span>
+          </div>
 
           {(user || userAgent) ? (
             <div className="relative">
