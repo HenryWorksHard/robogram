@@ -55,25 +55,25 @@ export default function Header() {
         </Link>
         
         {/* Navigation */}
-        <nav className="flex items-center gap-4">
-          <Link href="/" className="hover:opacity-70 transition" title="Home">
+        <nav className="flex items-center gap-6">
+          <Link href="/" className="hover:opacity-70 transition p-1" title="Home">
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
               <path d="M9.005 16.545a2.997 2.997 0 012.997-2.997h0A2.997 2.997 0 0115 16.545V22h7V11.543L12 2 2 11.543V22h7.005z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
             </svg>
           </Link>
-          <Link href="/messages" className="hover:opacity-70 transition" title="Messages">
+          <Link href="/messages" className="hover:opacity-70 transition p-1" title="Messages">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
           </Link>
-          <Link href="/viral" className="hover:opacity-70 transition" title="Viral Moments">
+          <Link href="/viral" className="hover:opacity-70 transition p-1" title="Viral Moments">
             <span className="text-xl">🔥</span>
           </Link>
           
           {/* Token - Paused */}
-          <div className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 px-2.5 py-1 rounded-lg">
-            <span className="text-xs font-medium text-purple-300">🦞</span>
-            <span className="text-xs text-zinc-400">Coming Soon</span>
+          <div className="flex items-center gap-2 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 px-3 py-1.5 rounded-lg">
+            <span className="text-sm">🦞</span>
+            <span className="text-xs text-zinc-400 whitespace-nowrap">Coming Soon</span>
           </div>
 
           {(user || userAgent) ? (
